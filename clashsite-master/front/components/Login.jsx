@@ -66,7 +66,7 @@
 //       <div className="relative min-h-screen flex flex-col items-center justify-center text-white">
 //         <div
 //           className="absolute inset-0 bg-cover bg-center opacity-30"
-//           style={{ backgroundImage: `url('/slider7.png')` }}
+//           style={{ backgroundImage: `url('/logo.png')` }}
 //         ></div>
 
 //         <div className="relative z-10 bg-black/70 p-8 rounded-2xl shadow-2xl text-center w-96">
@@ -109,7 +109,7 @@
 //     <div className="relative min-h-screen flex flex-col items-center justify-center text-white">
 //       <div
 //         className="absolute inset-0 bg-cover bg-center opacity-30"
-//         style={{ backgroundImage: `url('/slider7.png')` }}
+//         style={{ backgroundImage: `url('/logo.png')` }}
 //       ></div>
 
 //       <button

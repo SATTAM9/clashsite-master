@@ -91,7 +91,7 @@ const SignUp = () => {
     <div className="relative min-h-screen overflow-hidden bg-[#05070f] text-white">
       <div className="absolute inset-0">
         <img
-          src="/slider7.png"
+          src="/logo.png"
           alt="Clash battleground backdrop"
           className="h-full w-full object-cover"
         />

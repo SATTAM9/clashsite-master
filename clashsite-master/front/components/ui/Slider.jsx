@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { FaArrowAltCircleLeft, FaArrowAltCircleRight } from "react-icons/fa";
 
 const images = [
-  '/slider7.png',
-  '/slider8.png',
+  '/logo.png',
 ];
 
 
