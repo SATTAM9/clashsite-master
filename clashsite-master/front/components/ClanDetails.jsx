@@ -82,6 +82,14 @@ const getSeasonDayCount = () => {
   return Math.max(1, Math.floor(diff / MS_PER_DAY) + 1);
 };
 
+const CAPITAL_TAB_ITEMS = [
+  { id: "overview", label: "Clan Capital Raids" },
+  { id: "trend", label: "Capital Loot Trend" },
+  { id: "contributors", label: "Top Contributors" },
+  { id: "attack", label: "Attack Log" },
+  { id: "defense", label: "Defense Log" },
+];
+
 const prettifyText = (value) => {
   if (!value) return "--";
   return String(value)
@@ -357,6 +365,177 @@ useEffect(() => {
       defense: summarizeLog(latestCapitalSeason.defenseLog, "defense"),
     };
   }, [latestCapitalSeason]);
+
+  const topContributors = Array.isArray(latestCapitalSeason?.members)
+    ? latestCapitalSeason.members.slice(0, 15)
+    : [];
+
+  const capitalAttackEntries = capitalLogs.attack.slice(0, 5);
+  const capitalDefenseEntries = capitalLogs.defense.slice(0, 5);
+
+  const renderCapitalTabContent = () => {
+    switch (capitalActiveTab) {
+      case "overview":
+        return (
+          <div className="space-y-6">
+            {capitalSummaryStats.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {capitalSummaryStats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60 transition hover:-translate-y-1 hover:ring-sky-400/60"
+                  >
+                    <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
+                    <p className="mt-2 text-2xl font-semibold">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-300">Raid metrics are not available.</p>
+            )}
+          </div>
+        );
+      case "trend":
+        return (
+          <div className="space-y-6">
+            {capitalTrendPoints.length ? (
+              <CapitalLootChart points={capitalTrendPoints} />
+            ) : (
+              <p className="text-sm text-slate-300">Capital loot trend data is not available.</p>
+            )}
+          </div>
+        );
+      case "contributors":
+        return topContributors.length ? (
+          <div className="space-y-4">
+            <h4 className="text-xl font-semibold">Top Contributors</h4>
+            <div className="overflow-x-auto rounded-2xl border border-slate-800">
+              <table className="min-w-full divide-y divide-slate-800 text-sm">
+                <thead className="bg-slate-900/80 text-slate-300">
+                  <tr className="text-left text-xs uppercase tracking-wide">
+                    <th className="px-4 py-3">Player</th>
+                    <th className="px-4 py-3">Tag</th>
+                    <th className="px-4 py-3">Attacks</th>
+                    <th className="px-4 py-3">Attack Limit</th>
+                    <th className="px-4 py-3">Bonus Limit</th>
+                    <th className="px-4 py-3">Looted</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-slate-950/60">
+                  {topContributors.map((member, idx) => (
+                    <tr
+                      key={member.tag}
+                      className={`transition hover:bg-slate-900 ${idx % 2 === 0 ? "bg-slate-950/40" : "bg-slate-900/40"}`}
+                    >
+                      <td className="px-4 py-3 font-semibold text-slate-100">{member.name}</td>
+                      <td className="px-4 py-3 text-slate-300">{member.tag}</td>
+                      <td className="px-4 py-3 text-slate-300">{formatNumber(member.attacks)}</td>
+                      <td className="px-4 py-3 text-slate-300">{formatNumber(member.attackLimit)}</td>
+                      <td className="px-4 py-3 text-slate-300">{formatNumber(member.bonusAttackLimit)}</td>
+                      <td className="px-4 py-3 text-emerald-300 font-semibold">{formatNumber(member.capitalResourcesLooted)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-300">Top contributor data is not available.</p>
+        );
+      case "attack":
+        return capitalAttackEntries.length ? (
+          <div className="space-y-4">
+            <h4 className="text-xl font-semibold">Attack Log</h4>
+            {capitalAttackEntries.map((entry, idx) => (
+              <div
+                key={entry.key || `attack-${idx}`}
+                className="rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800/60"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-lg font-semibold text-slate-100">{entry.defender?.name || "Unknown Clan"}</p>
+                    <p className="text-xs text-slate-400">{entry.defender?.tag || "--"}</p>
+                  </div>
+                  <div className="text-right text-sm text-slate-300">
+                    <p>Attacks: {formatNumber(entry.attackCount)}</p>
+                    <p>
+                      Districts: {formatNumber(entry.districtsDestroyed)} / {formatNumber(entry.districtCount)}
+                    </p>
+                    <p>Perfected: {formatNumber(entry.perfectedDistricts)}</p>
+                    <p>Loot Gained: {formatNumber(entry.totalLooted)}</p>
+                  </div>
+                </div>
+                {entry.districts && entry.districts.length > 0 ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {entry.districts.slice(0, 6).map((district, districtIdx) => (
+                      <div
+                        key={`${entry.key}-attdistrict-${district.id}-${districtIdx}`}
+                        className="rounded-xl bg-slate-950/60 p-3 text-xs text-slate-200 ring-1 ring-slate-800/40"
+                      >
+                        <p className="font-semibold text-slate-100">{district.name}</p>
+                        <p>Hall {formatNumber(district.hallLevel)}</p>
+                        <p>Destruction: {formatNumber(district.destructionPercent)}%</p>
+                        <p>Attacks: {formatNumber(district.attackCount)}</p>
+                        <p>Loot: {formatNumber(district.totalLooted)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-300">Attack log is not available for this weekend.</p>
+        );
+      case "defense":
+        return capitalDefenseEntries.length ? (
+          <div className="space-y-4">
+            <h4 className="text-xl font-semibold">Defense Log</h4>
+            {capitalDefenseEntries.map((entry, idx) => (
+              <div
+                key={entry.key || `defense-${idx}`}
+                className="rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800/60"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-lg font-semibold text-slate-100">{entry.attacker?.name || "Unknown Clan"}</p>
+                    <p className="text-xs text-slate-400">{entry.attacker?.tag || "--"}</p>
+                  </div>
+                  <div className="text-right text-sm text-slate-300">
+                    <p>Attacks: {formatNumber(entry.attackCount)}</p>
+                    <p>
+                      Districts Lost: {formatNumber(entry.districtsDestroyed)} / {formatNumber(entry.districtCount)}
+                    </p>
+                    <p>Perfected: {formatNumber(entry.perfectedDistricts)}</p>
+                    <p>Loot Lost: {formatNumber(entry.totalLooted)}</p>
+                  </div>
+                </div>
+                {entry.districts && entry.districts.length > 0 ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {entry.districts.slice(0, 6).map((district, districtIdx) => (
+                      <div
+                        key={`${entry.key}-defdistrict-${district.id}-${districtIdx}`}
+                        className="rounded-xl bg-slate-950/60 p-3 text-xs text-slate-200 ring-1 ring-slate-800/40"
+                      >
+                        <p className="font-semibold text-slate-100">{district.name}</p>
+                        <p>Hall {formatNumber(district.hallLevel)}</p>
+                        <p>Destruction: {formatNumber(district.destructionPercent)}%</p>
+                        <p>Enemy attacks: {formatNumber(district.attackCount)}</p>
+                        <p>Loot Lost: {formatNumber(district.totalLooted)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-300">Defense log is not available for this weekend.</p>
+        );
+      default:
+        return null;
+    }
+  };
 
   const membersCount = useMemo(() => {
   if (Array.isArray(clan?.members)) return clan.members.length;
@@ -653,7 +832,7 @@ const quickStats = useMemo(
               <div className="flex flex-col gap-3 rounded-2xl bg-slate-900/70 p-5 text-sm text-slate-200 ring-1 ring-slate-800/50">
                 <p className="text-base font-semibold text-white">Rally your clan</p>
                 <p>
-                  Celebrate the story behind the stats with a quick share or invite — a nod to the
+                  Celebrate the story behind the stats with a quick share or invite ï¿½ a nod to the
                   narrative moments featured on Top Req Clans.
                 </p>
                 <div className="flex flex-wrap gap-3">
@@ -680,168 +859,60 @@ const quickStats = useMemo(
         ) : null}
 
         <section className="rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
-  <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-    <div>
-      <h3 className="text-2xl font-semibold tracking-tight">Clan Capital Raids</h3>
-      {latestCapitalSeason ? (
-        <p className="text-sm text-slate-300">
-          {latestCapitalSeason.state === "ongoing" ? "Current weekend" : "Latest weekend"} - {formatDateTime(latestCapitalSeason.startTime)} to {formatDateTime(latestCapitalSeason.endTime)}
-        </p>
-      ) : null}
-    </div>
-    {capitalLoading ? <span className="text-sm text-slate-400">Loading...</span> : null}
-  </div>
-  {capitalLoading ? (
-    <div className="flex justify-center py-6">
-      <div className="h-12 w-12 animate-spin rounded-full border-4 border-sky-400 border-t-transparent"></div>
-    </div>
-  ) : capitalError ? (
-    <p className="text-sm text-red-400">{capitalError}</p>
-  ) : !latestCapitalSeason ? (
-    <p className="text-sm text-slate-300">Capital raid history is not available.</p>
-  ) : (
-    <div className="space-y-8">
-      {capitalSummaryStats.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {capitalSummaryStats.map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60 transition hover:-translate-y-1 hover:ring-sky-400/60"
-            >
-              <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
-              <p className="mt-2 text-2xl font-semibold">{stat.value}</p>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="text-2xl font-semibold tracking-tight">Clan Capital Raids</h3>
+              {latestCapitalSeason ? (
+                <p className="text-sm text-slate-300">
+                  {latestCapitalSeason.state === "ongoing" ? "Current weekend" : "Latest weekend"} - {formatDateTime(latestCapitalSeason.startTime)} to {formatDateTime(latestCapitalSeason.endTime)}
+                </p>
+              ) : null}
             </div>
-          ))}
-        </div>
-      ) : null}
-
-      {capitalTrendPoints.length ? (
-        <CapitalLootChart points={capitalTrendPoints} />
-      ) : null}
-
-      {latestCapitalSeason.members && latestCapitalSeason.members.length > 0 ? (
-        <div>
-          <h4 className="mb-4 text-xl font-semibold">Top Contributors</h4>
-          <div className="overflow-x-auto rounded-2xl border border-slate-800">
-            <table className="min-w-full divide-y divide-slate-800 text-sm">
-              <thead className="bg-slate-900/80 text-slate-300">
-                <tr className="text-left text-xs uppercase tracking-wide">
-                  <th className="px-4 py-3">Player</th>
-                  <th className="px-4 py-3">Tag</th>
-                  <th className="px-4 py-3">Attacks</th>
-                  <th className="px-4 py-3">Attack Limit</th>
-                  <th className="px-4 py-3">Bonus Limit</th>
-                  <th className="px-4 py-3">Looted</th>
-                </tr>
-              </thead>
-              <tbody className="bg-slate-950/60">
-                {latestCapitalSeason.members.slice(0, 15).map((member, idx) => (
-                  <tr
-                    key={member.tag}
-                    className={`transition hover:bg-slate-900 ${idx % 2 === 0 ? "bg-slate-950/40" : "bg-slate-900/40"}`}
-                  >
-                    <td className="px-4 py-3 font-semibold text-slate-100">{member.name}</td>
-                    <td className="px-4 py-3 text-slate-300">{member.tag}</td>
-                    <td className="px-4 py-3 text-slate-300">{formatNumber(member.attacks)}</td>
-                    <td className="px-4 py-3 text-slate-300">{formatNumber(member.attackLimit)}</td>
-                    <td className="px-4 py-3 text-slate-300">{formatNumber(member.bonusAttackLimit)}</td>
-                    <td className="px-4 py-3 text-emerald-300 font-semibold">{formatNumber(member.capitalResourcesLooted)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {capitalLoading ? <span className="text-sm text-slate-400">Loading...</span> : null}
           </div>
-        </div>
-      ) : null}
-
-      {capitalLogs.attack.length > 0 ? (
-        <div className="space-y-4">
-          <h4 className="text-xl font-semibold">Attack Log</h4>
-          {capitalLogs.attack.slice(0, 5).map((entry, idx) => (
-            <div
-              key={entry.key || `attack-${idx}`}
-              className="rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800/60"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-lg font-semibold text-slate-100">{entry.defender?.name || "Unknown Clan"}</p>
-                  <p className="text-xs text-slate-400">{entry.defender?.tag || "--"}</p>
-                </div>
-                <div className="text-right text-sm text-slate-300">
-                  <p>Attacks: {formatNumber(entry.attackCount)}</p>
-                  <p>
-                    Districts: {formatNumber(entry.districtsDestroyed)} / {formatNumber(entry.districtCount)}
-                  </p>
-                  <p>Perfected: {formatNumber(entry.perfectedDistricts)}</p>
-                  <p>Loot Gained: {formatNumber(entry.totalLooted)}</p>
-                </div>
-              </div>
-              {entry.districts && entry.districts.length > 0 ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {entry.districts.slice(0, 6).map((district, districtIdx) => (
-                    <div
-                      key={`${entry.key}-attdistrict-${district.id}-${districtIdx}`}
-                      className="rounded-xl bg-slate-950/60 p-3 text-xs text-slate-200 ring-1 ring-slate-800/40"
-                    >
-                      <p className="font-semibold text-slate-100">{district.name}</p>
-                      <p>Hall {formatNumber(district.hallLevel)}</p>
-                      <p>Destruction: {formatNumber(district.destructionPercent)}%</p>
-                      <p>Attacks: {formatNumber(district.attackCount)}</p>
-                      <p>Loot: {formatNumber(district.totalLooted)}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
+          {capitalLoading ? (
+            <div className="flex justify-center py-6">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-sky-400 border-t-transparent"></div>
             </div>
-          ))}
-        </div>
-      ) : null}
-
-      {capitalLogs.defense.length > 0 ? (
-        <div className="space-y-4">
-          <h4 className="text-xl font-semibold">Defense Log</h4>
-          {capitalLogs.defense.slice(0, 5).map((entry, idx) => (
-            <div
-              key={entry.key || `defense-${idx}`}
-              className="rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800/60"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-lg font-semibold text-slate-100">{entry.attacker?.name || "Unknown Clan"}</p>
-                  <p className="text-xs text-slate-400">{entry.attacker?.tag || "--"}</p>
-                </div>
-                <div className="text-right text-sm text-slate-300">
-                  <p>Attacks: {formatNumber(entry.attackCount)}</p>
-                  <p>
-                    Districts Lost: {formatNumber(entry.districtsDestroyed)} / {formatNumber(entry.districtCount)}
-                  </p>
-                  <p>Perfected: {formatNumber(entry.perfectedDistricts)}</p>
-                  <p>Loot Lost: {formatNumber(entry.totalLooted)}</p>
-                </div>
-              </div>
-              {entry.districts && entry.districts.length > 0 ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {entry.districts.slice(0, 6).map((district, districtIdx) => (
-                    <div
-                      key={`${entry.key}-defdistrict-${district.id}-${districtIdx}`}
-                      className="rounded-xl bg-slate-950/60 p-3 text-xs text-slate-200 ring-1 ring-slate-800/40"
+          ) : capitalError ? (
+            <p className="text-sm text-red-400">{capitalError}</p>
+          ) : !latestCapitalSeason ? (
+            <p className="text-sm text-slate-300">Capital raid history is not available.</p>
+          ) : (
+            <div className="space-y-8">
+              <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Clan capital sections">
+                {CAPITAL_TAB_ITEMS.map((tab) => {
+                  const isActive = capitalActiveTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      id={`capital-tab-trigger-${tab.id}`}
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-controls={`capital-tab-${tab.id}`}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${
+                        isActive ? "bg-sky-500 text-slate-950 shadow-sm" : "bg-slate-900/60 text-slate-300 hover:text-white"
+                      }`}
+                      onClick={() => setCapitalActiveTab(tab.id)}
                     >
-                      <p className="font-semibold text-slate-100">{district.name}</p>
-                      <p>Hall {formatNumber(district.hallLevel)}</p>
-                      <p>Destruction: {formatNumber(district.destructionPercent)}%</p>
-                      <p>Enemy attacks: {formatNumber(district.attackCount)}</p>
-                      <p>Loot Lost: {formatNumber(district.totalLooted)}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div
+                role="tabpanel"
+                id={`capital-tab-${capitalActiveTab}`}
+                aria-labelledby={`capital-tab-trigger-${capitalActiveTab}`}
+              >
+                {renderCapitalTabContent()}
+              </div>
             </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  )}
-</section>
+          )}
+        </section>
+
+
 
         <section className="rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
