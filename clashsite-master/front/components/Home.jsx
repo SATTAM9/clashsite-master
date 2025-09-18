@@ -1,7 +1,7 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../src/i18n/LanguageContext";
 import { Link } from "react-router-dom";
-import { FaYoutube, FaTelegram, FaTiktok } from "react-icons/fa";
+import { FaYoutube, FaTelegram, FaTiktok, FaDiscord } from "react-icons/fa";
 import Carousel from "./ui/Slider";
 import Player from "./search/Player";
 import MySelectByCountry from "./search/MySelectByCountry";
@@ -46,6 +46,18 @@ const socialChannels = [
       "bg-slate-200/90 hover:bg-slate-100 focus-visible:outline-slate-200 focus-visible:outline-offset-2",
     badgeTextClass: "text-slate-900",
     actionLabel: "See clips",
+  },
+  {
+    name: "Discord",
+    href: "https://discord.gg/F55tXqKdJq",
+    description: "Coordinate war attacks, share bases, and hang out with the ReqClans crew.",
+    icon: FaDiscord,
+    metric: "Live strategy chat",
+    ringClass: "hover:ring-indigo-400/60",
+    badgeClass:
+      "bg-indigo-500/90 hover:bg-indigo-400 focus-visible:outline-indigo-400 focus-visible:outline-offset-2",
+    badgeTextClass: "text-white",
+    actionLabel: "Join server",
   },
 ];
 
@@ -252,27 +264,6 @@ const Home = () => {
             </div>
           </div>
         </div>
-        <div className="rounded-3xl bg-slate-950/70 p-6 shadow-xl ring-1 ring-slate-800/50">
-          <p className="text-base font-semibold text-white">
-            Stay connected
-          </p>
-          <p className="mt-2 text-sm text-slate-200">
-            Follow our official channels for launch-day breakdowns, push alerts, and quick win recaps.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {socialChannels.map(({ name, href, icon: IconComponent, badgeClass, badgeTextClass }) => (
-              <a
-                key={name}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer me"
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${badgeClass} ${badgeTextClass}`}
-              >
-                <IconComponent aria-hidden="true" /> {name}
-              </a>
-            ))}
-          </div>
-        </div>
       </section>
 
       <section
@@ -333,6 +324,7 @@ const Home = () => {
 };
 
 export default Home;
+
 
 
 
