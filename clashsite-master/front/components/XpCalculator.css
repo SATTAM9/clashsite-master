@@ -1,0 +1,34 @@
+﻿.xp-card {
+  position: relative;
+}
+
+.xp-card-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.7) 0%, rgba(15, 23, 42, 0.35) 100%);
+}
+
+.xp-card-bg-next {
+  background-image: url("https://tse2.mm.bing.net/th/id/OIP.07zUTY62FqKSLeZwDGuTYgHaEo?pid=Api");
+  background-size: cover;
+  background-position: center;
+}
+
+.xp-card-bg-total {
+  background-image: url("https://tse3.mm.bing.net/th/id/OIP.A4f29zTmGoxWBf1MILHMcQHaHa?pid=Api");
+  background-size: cover;
+  background-position: center;
+}
+
+.xp-card-bg-between {
+  background-image: url("https://tse1.mm.bing.net/th/id/OIP.e9UOcNQ2BhSv0s-sK6AHbQHaFj?pid=Api");
+  background-size: cover;
+  background-position: center;
+}
+
+.xp-card-bg-build {
+  background-image: url("https://tse4.mm.bing.net/th/id/OIP.-9Sva0z8Cpbnw8VluiQTRwHaES?pid=Api");
+  background-size: cover;
+  background-position: center;
+}
