@@ -3,11 +3,9 @@ import { useParams } from "react-router-dom";
 import PlayerCollections from "./ui/TapPlayer";
 import SeasonTrophiesChart from "./analytics/SeasonTrophiesChart";
 import TroopProgressChart from "./analytics/TroopProgressChart";
+import { ASSET_BASE_URL, LOCAL_ICON_BASE, buildLabelSources, buildLocalFromRemote, createFallbackHandler, dedupeLabels, getImageSource, pickIconUrl } from "../lib/cocAssets";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
-const ASSET_BASE_URL = "https://api-assets.clashofclans.com";
-const LOCAL_ICON_BASE = "/assets/coc/icons";
-
 const UNRANKED_LEAGUE = {
   id: 29000000,
   name: "Unranked",
@@ -47,21 +45,6 @@ const formatNumber = (value) => {
   return Number.isFinite(numeric) ? numeric.toLocaleString() : value;
 };
 
-const pickIconUrl = (iconUrls) => {
-  if (!iconUrls) return "";
-  return iconUrls.medium || iconUrls.large || iconUrls.small || iconUrls.tiny || "";
-};
-
-const buildLocalFromRemote = (url) => {
-  if (!url) return "";
-  try {
-    const { pathname } = new URL(url);
-    return `${LOCAL_ICON_BASE}${pathname}`;
-  } catch {
-    return "";
-  }
-};
-
 const buildBadgeSources = (badge) => {
   if (!badge) return { local: "", remote: "" };
   const remote = badge.large || badge.medium || badge.small || badge.url || "";
@@ -80,17 +63,6 @@ const buildLeagueSources = (league) => {
   // League icons provided by the API are already the authoritative assets.
   // Local league sprites are often out-of-date or have hashed filenames, so we skip them here.
   return { local: "", remote };
-};
-
-const buildLabelSources = (label) => {
-  const remote = pickIconUrl(label?.iconUrls) || (label?.id ? `${ASSET_BASE_URL}/labels/${label.id}.png` : "");
-  const localCandidates = [];
-  const fromRemote = buildLocalFromRemote(remote);
-  if (fromRemote) localCandidates.push(fromRemote);
-  if (label?.id) {
-    localCandidates.push(`${LOCAL_ICON_BASE}/labels/${label.id}.png`);
-  }
-  return { local: localCandidates.find(Boolean) || "", remote };
 };
 
 const buildPlayerIngameLink = (tag) => {
@@ -210,7 +182,7 @@ useEffect(() => {
     }
 
     if (Array.isArray(player?.clan?.labels) && player.clan.labels.length) {
-      setClanLabels(player.clan.labels);
+      setClanLabels(dedupeLabels(player.clan.labels));
       setClanLabelsError("");
       setClanLabelsLoading(false);
       return;
@@ -240,7 +212,7 @@ useEffect(() => {
         }
 
         if (payload.success && Array.isArray(payload.clanInfo?.labels)) {
-          setClanLabels(payload.clanInfo.labels);
+          setClanLabels(dedupeLabels(payload.clanInfo.labels));
           setClanLabelsError("");
         } else {
           setClanLabels([]);
@@ -329,21 +301,9 @@ useEffect(() => {
 
   const leagueSources = useMemo(() => buildLeagueSources(player?.league), [player]);
   const clanBadgeSources = useMemo(() => buildBadgeSources(player?.clan?.badge), [player]);
-  const labels = useMemo(() => player?.labels ?? [], [player]);
+  const labels = useMemo(() => dedupeLabels(player?.labels), [player?.labels]);
   const legendStats = player?.legendStatistics;
   const leagueName = player?.league?.name || UNRANKED_LEAGUE.name;
-
-  const getImageSource = (sources) => sources.remote || sources.local || "";
-
-  const createFallbackHandler = (sources) => (event) => {
-    if (sources.remote && event.currentTarget.dataset.fallback !== "remote") {
-      event.currentTarget.dataset.fallback = "remote";
-      event.currentTarget.src = sources.remote;
-    } else {
-      event.currentTarget.onerror = null;
-      event.currentTarget.style.visibility = "hidden";
-    }
-  };
 
   const highlightStats = useMemo(() => {
     const stats = [

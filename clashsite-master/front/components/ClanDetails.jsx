@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import CapitalLootChart from "./analytics/CapitalLootChart";
+import { ASSET_BASE_URL, LOCAL_ICON_BASE, buildLabelSources, buildLocalFromRemote, createFallbackHandler, dedupeLabels, getImageSource, pickIconUrl } from "../lib/cocAssets";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
-const ASSET_BASE_URL = "https://api-assets.clashofclans.com";
-const LOCAL_ICON_BASE = "/assets/coc/icons";
-
 const formatNumber = (value) => {
   if (value === null || value === undefined) return "--";
   const numeric = Number(value);
@@ -20,21 +18,6 @@ const getTownHallImage = (level) => {
 const hideImgOnError = (event) => {
   event.currentTarget.onerror = null;
   event.currentTarget.style.visibility = "hidden";
-};
-
-const pickIconUrl = (iconUrls) => {
-  if (!iconUrls) return "";
-  return iconUrls.medium || iconUrls.large || iconUrls.small || iconUrls.tiny || "";
-};
-
-const buildLocalFromRemote = (url) => {
-  if (!url) return "";
-  try {
-    const { pathname } = new URL(url);
-    return `${LOCAL_ICON_BASE}${pathname}`;
-  } catch {
-    return "";
-  }
 };
 
 const buildBadgeSources = (badge) => {
@@ -56,20 +39,11 @@ const buildLeagueSources = (league) => {
   return { local: "", remote };
 };
 
-const buildLabelSources = (label) => {
-  if (!label) return { local: "", remote: "" };
-  const remote = pickIconUrl(label.iconUrls) || (label.id ? `${ASSET_BASE_URL}/labels/${label.id}.png` : "");
-  const local = buildLocalFromRemote(remote) || (label.id ? `${LOCAL_ICON_BASE}/labels/${label.id}.png` : "");
-  return { local, remote };
-};
-
 const buildClanIngameLink = (tag) => {
   if (!tag) return "";
   const normalized = tag.startsWith('#') ? tag : `#${tag}`;
   return `https://link.clashofclans.com/en?action=OpenClanProfile&tag=${encodeURIComponent(normalized)}`;
 };
-
-const getImageSource = (sources) => sources.remote || sources.local || "";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -104,16 +78,6 @@ const formatDateTime = (value) => {
     return value;
   }
   return date.toLocaleString();
-};
-
-const createFallbackHandler = (sources) => (event) => {
-  if (sources.remote && event.currentTarget.dataset.fallback !== "remote") {
-    event.currentTarget.dataset.fallback = "remote";
-    event.currentTarget.src = sources.remote;
-  } else {
-    event.currentTarget.onerror = null;
-    event.currentTarget.style.visibility = "hidden";
-  }
 };
 
 const ClanDetails = () => {
@@ -634,7 +598,7 @@ const quickStats = useMemo(
     [clan, locationName],
   );
 
-  const labelsList = useMemo(() => (Array.isArray(clan?.labels) ? clan.labels : []), [clan]);
+  const labelsList = useMemo(() => dedupeLabels(clan?.labels), [clan?.labels]);
 
   const copyClanTag = async () => {
     if (!clan?.tag) return;
@@ -802,14 +766,26 @@ const quickStats = useMemo(
           <section className="rounded-3xl bg-slate-950/70 p-8 shadow-xl ring-1 ring-slate-700/40">
             <h3 className="text-2xl font-semibold tracking-tight">Clan Labels</h3>
             <div className="mt-4 flex flex-wrap gap-3">
-              {labelsList.map((label) => (
-                <span
-                  key={label.name}
-                  className="rounded-full bg-slate-900/70 px-4 py-2 text-sm font-medium ring-1 ring-slate-800/60"
-                >
-                  {label.name}
-                </span>
-              ))}
+              {labelsList.map((label) => {
+                const sources = buildLabelSources(label);
+                const labelSrc = getImageSource(sources);
+                return (
+                  <span
+                    key={label.id || label.name}
+                    className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-4 py-2 text-sm font-medium ring-1 ring-slate-800/60"
+                  >
+                    {labelSrc ? (
+                      <img
+                        src={labelSrc}
+                        alt={label.name}
+                        className="h-5 w-5 object-contain"
+                        onError={createFallbackHandler(sources)}
+                      />
+                    ) : null}
+                    <span>{label.name}</span>
+                  </span>
+                );
+              })}
             </div>
           </section>
         ) : null}
