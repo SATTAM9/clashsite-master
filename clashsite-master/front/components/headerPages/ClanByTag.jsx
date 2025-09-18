@@ -72,7 +72,7 @@ export default function ClanByTag() {
       dir={direction}
     >
       <img
-        src="/title.png"
+        src="/fic.jpeg"
         alt="Clash"
         className="mx-auto w-50 mb-4 animate-bounce"
       />

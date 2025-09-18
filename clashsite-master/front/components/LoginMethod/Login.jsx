@@ -117,7 +117,7 @@ const Login = () => {
             <div className="rounded-3xl border border-white/10 bg-black/70 p-8 shadow-2xl backdrop-blur-xl sm:p-10">
               <div className="flex flex-col items-center text-center">
                 <img
-                  src="/title.png"
+                  src="/fic.jpeg"
                   alt="ReqClans crest"
                   className="mb-6 w-20 animate-bounce"
                 />

@@ -15,7 +15,7 @@ const Header = () => {
       <div className="container mx-auto flex items-center justify-between px-6 py-4">
         <a className="flex items-center gap-2 group" href="/">
           <img
-            src="/title.png"
+            src="/fic.jpeg"
             alt="logo"
             className="w-10 transition-transform duration-300 group-hover:scale-110"
           />

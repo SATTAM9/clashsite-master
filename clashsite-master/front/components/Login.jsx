@@ -71,7 +71,7 @@
 
 //         <div className="relative z-10 bg-black/70 p-8 rounded-2xl shadow-2xl text-center w-96">
 //           <img
-//             src={"/title.png"}
+//             src={"/fic.jpeg"}
 //             alt="Clash"
 //             className="mx-auto w-20 mb-4 animate-bounce"
 //           />
@@ -198,7 +198,7 @@ const Login = () => {
     <div className="text-white">
 
       <img
-        src={"/title.png"}
+        src={"/fic.jpeg"}
         alt="Clash"
         className="mx-auto w-20 mb-4 animate-bounce"
       />
