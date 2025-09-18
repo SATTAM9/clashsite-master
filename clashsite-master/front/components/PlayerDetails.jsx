@@ -110,7 +110,6 @@ const getSeasonDayCount = () => {
   return Math.max(1, Math.floor(diff / MS_PER_DAY) + 1);
 };
 
-
 const formatDateTime = (value) => {
   if (!value) return "--";
   const date = new Date(value);
@@ -131,6 +130,9 @@ const PlayerDetails = () => {
   const [capitalError, setCapitalError] = useState("");
   const [copyFeedback, setCopyFeedback] = useState("");
   const copyTimeoutRef = useRef(null);
+  const [clanLabels, setClanLabels] = useState([]);
+  const [clanLabelsLoading, setClanLabelsLoading] = useState(false);
+  const [clanLabelsError, setClanLabelsError] = useState("");
 
 useEffect(() => {
   if (!player?.clan?.tag) {
@@ -197,6 +199,75 @@ useEffect(() => {
   };
 }, [player?.clan?.tag, player?.tag]);
 
+  useEffect(() => {
+    const clanTag = player?.clan?.tag;
+
+    if (!clanTag) {
+      setClanLabels([]);
+      setClanLabelsError("");
+      setClanLabelsLoading(false);
+      return;
+    }
+
+    if (Array.isArray(player?.clan?.labels) && player.clan.labels.length) {
+      setClanLabels(player.clan.labels);
+      setClanLabelsError("");
+      setClanLabelsLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setClanLabelsLoading(true);
+    setClanLabelsError("");
+
+    const normalizedTag = clanTag.startsWith("#") ? clanTag : `#${clanTag}`;
+
+    const fetchClanLabels = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/clanbytagForDetails`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tag: normalizedTag }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        if (isCancelled) {
+          return;
+        }
+
+        if (payload.success && Array.isArray(payload.clanInfo?.labels)) {
+          setClanLabels(payload.clanInfo.labels);
+          setClanLabelsError("");
+        } else {
+          setClanLabels([]);
+          if (payload.error) {
+            setClanLabelsError(payload.error);
+          }
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.error("clan labels fetch", err);
+          setClanLabels([]);
+          setClanLabelsError("Unable to load clan labels.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setClanLabelsLoading(false);
+        }
+      }
+    };
+
+    fetchClanLabels();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [player?.clan?.tag, player?.clan?.labels]);
+
   const seasonDayCount = useMemo(() => getSeasonDayCount(), []);
   const donationStats = useMemo(() => {
     const donations = Number(player?.donations ?? 0);
@@ -212,7 +283,6 @@ useEffect(() => {
       dailyAverage,
     };
   }, [player, seasonDayCount]);
-
 
   useEffect(() => {
     const fetchPlayer = async () => {
@@ -745,6 +815,34 @@ useEffect(() => {
                       <p className="text-xs text-slate-300">Role: {player.role || "Member"}</p>
                     </div>
                   </div>
+                  {clanLabelsLoading ? (
+                    <p className="mt-3 text-xs text-slate-400">Loading clan labels...</p>
+                  ) : clanLabelsError ? (
+                    <p className="mt-3 text-xs text-slate-400">{clanLabelsError}</p>
+                  ) : clanLabels.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {clanLabels.map((label) => {
+                        const sources = buildLabelSources(label);
+                        const labelSrc = getImageSource(sources);
+                        return (
+                          <span
+                            key={label.id || label.name}
+                            className="inline-flex items-center gap-2 rounded-full bg-slate-900/60 px-3 py-1 text-xs font-medium ring-1 ring-slate-700/60"
+                          >
+                            {labelSrc ? (
+                              <img
+                                src={labelSrc}
+                                alt={label.name}
+                                className="h-4 w-4 object-contain"
+                                onError={createFallbackHandler(sources)}
+                              />
+                            ) : null}
+                            <span>{label.name}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="rounded-2xl bg-slate-900/40 p-5 ring-1 ring-slate-800/40 text-sm text-slate-300">
@@ -885,5 +983,3 @@ useEffect(() => {
 };
 
 export default PlayerDetails;
-
-

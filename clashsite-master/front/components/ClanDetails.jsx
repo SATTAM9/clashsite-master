@@ -56,6 +56,13 @@ const buildLeagueSources = (league) => {
   return { local: "", remote };
 };
 
+const buildLabelSources = (label) => {
+  if (!label) return { local: "", remote: "" };
+  const remote = pickIconUrl(label.iconUrls) || (label.id ? `${ASSET_BASE_URL}/labels/${label.id}.png` : "");
+  const local = buildLocalFromRemote(remote) || (label.id ? `${LOCAL_ICON_BASE}/labels/${label.id}.png` : "");
+  return { local, remote };
+};
+
 const buildClanIngameLink = (tag) => {
   if (!tag) return "";
   const normalized = tag.startsWith('#') ? tag : `#${tag}`;
@@ -111,6 +118,7 @@ const ClanDetails = () => {
   const [capitalLoading, setCapitalLoading] = useState(false);
   const [capitalError, setCapitalError] = useState("");
   const [copyFeedback, setCopyFeedback] = useState("");
+  const [capitalActiveTab, setCapitalActiveTab] = useState("overview");
 
   useEffect(() => {
     const fetchClan = async () => {
