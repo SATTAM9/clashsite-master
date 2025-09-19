@@ -149,6 +149,40 @@ const parseNamesFromHistoryText = (text) => {
   return { from: "", to: "" };
 };
 
+const sanitizeClanHistoryActionText = (action) => {
+  if (!action) {
+    return "";
+  }
+  const normalized = String(action).replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  const lower = normalized.toLowerCase();
+  if (
+    !lower.includes("donations/receives") &&
+    !lower.includes("donations / receives") &&
+    !lower.includes("reset donations") &&
+    !lower.includes("donations reset") &&
+    !lower.includes("reset receives")
+  ) {
+    return normalized;
+  }
+
+  let sanitized = normalized
+    .replace(/(?:reset\s+)?donations\s*\/\s*receives[:\s-]*.*$/i, "")
+    .replace(/\b(?:donations?|receives?|received)\s*[:=]\s*\d+(?:\/\d+)?/gi, "")
+    .replace(/\bdonations\s*\/\s*receives\b/gi, "");
+
+  sanitized = sanitized
+    .replace(/\s{2,}/g, " ")
+    .replace(/[,;:]\s*$/, "")
+    .replace(/[-\u2013\u2014]\s*$/, "")
+    .trim();
+
+  return sanitized;
+};
+
 const buildPlayerNameChangeEntries = (rawNameChanges, trackedActions) => {
   const entries = [];
   const seen = new Set();
@@ -246,6 +280,7 @@ const buildPlayerClanHistoryEntries = (trackedActions) => {
 
     const rawAction = typeof item.action === "string" ? item.action : "";
     const actionText = rawAction.replace(/\s+/g, " ").trim();
+    const sanitizedAction = sanitizeClanHistoryActionText(actionText);
     const lowerAction = actionText.toLowerCase();
 
     const clanInfo = item.clan || {};
@@ -258,12 +293,15 @@ const buildPlayerClanHistoryEntries = (trackedActions) => {
     if (!hasClanKeyword && !clanName && !clanTag) {
       return;
     }
+    if (!sanitizedAction && !clanName && !clanTag && !clanAffiliation) {
+      return;
+    }
 
     const rawTimestamp = item.timestamp || item.time || "";
     const formattedTimestamp = formatHistoryTimestamp(rawTimestamp);
     const dedupeKey = [
       formattedTimestamp,
-      actionText,
+      sanitizedAction,
       clanName,
       clanTag,
       clanAffiliation,
@@ -277,7 +315,7 @@ const buildPlayerClanHistoryEntries = (trackedActions) => {
     entries.push({
       key: `${formattedTimestamp || "timestamp-unavailable"}-${index}`,
       timestamp: formattedTimestamp || "Timestamp unavailable",
-      action: actionText || "Action details unavailable",
+      action: sanitizedAction,
       clanName,
       clanTag,
       clanAffiliation,

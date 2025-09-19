@@ -209,14 +209,20 @@ const PlayerHistorySection = ({
     <ul className="space-y-3">
       {normalizedClanHistory.map((entry) => {
         const hasContext = entry.clanName || entry.clanTag || entry.clanAffiliation;
+        const showAction = Boolean(entry.action && entry.action.trim());
+        const contextClassName = showAction
+          ? "mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400"
+          : "flex flex-wrap items-center gap-2 text-xs text-slate-400";
         return (
           <li key={entry.key}>
             <div className="grid gap-2 rounded-2xl bg-slate-900/70 px-5 py-4 ring-1 ring-slate-800/60 sm:grid-cols-[auto,1fr] sm:items-center">
               <span className="text-lg font-semibold text-white">{entry.timestamp}</span>
               <div className="text-sm text-slate-300">
-                <span className="font-medium text-slate-100">{entry.action}</span>
+                {showAction ? (
+                  <span className="font-medium text-slate-100">{entry.action}</span>
+                ) : null}
                 {hasContext ? (
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                  <div className={contextClassName}>
                     {entry.clanName ? (
                       <span className="font-semibold text-emerald-300">{entry.clanName}</span>
                     ) : null}
@@ -225,6 +231,9 @@ const PlayerHistorySection = ({
                     ) : null}
                     {entry.clanAffiliation ? <span>{entry.clanAffiliation}</span> : null}
                   </div>
+                ) : null}
+                {!showAction && !hasContext ? (
+                  <span className="text-xs text-slate-400">Action details unavailable.</span>
                 ) : null}
               </div>
             </div>
