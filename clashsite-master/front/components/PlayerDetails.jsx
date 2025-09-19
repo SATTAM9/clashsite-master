@@ -1056,63 +1056,72 @@ useEffect(() => {
     </div>
   );
 
+  const showCharts = trophyTrendPoints.length > 0 || troopProgressData.length > 0;
+  const showLegendCard = Boolean(legendStats);
+  const showBuilderCard = Boolean(builderCard);
+  const showCapitalCard = Boolean(capitalCard);
+
   return (
     <div className="min-h-screen bg-gradient-to-r from-[#384f84] via-[#1e293b] to-[#0f172a] py-12">
       <div className="mx-auto max-w-6xl px-4 space-y-10 text-white">
         <section className="relative overflow-hidden rounded-3xl bg-slate-950/75 p-8 shadow-2xl ring-1 ring-slate-700/40">
           <div className="absolute -top-28 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-yellow-500/10 blur-3xl" aria-hidden="true" />
           <div className="absolute -bottom-32 right-10 h-56 w-56 rounded-full bg-cyan-500/10 blur-3xl" aria-hidden="true" />
-          <div className="relative z-10 grid gap-10 lg:grid-cols-[minmax(0,2fr),minmax(0,1.15fr)]">
-            <div className="space-y-8">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                <div className="flex justify-center lg:justify-start">
-                  <div className="flex h-28 w-28 items-center justify-center rounded-full bg-slate-900/80 shadow-xl ring-4 ring-slate-800/60">
-                    {getImageSource(leagueSources) ? (
-                      <img
-                        src={getImageSource(leagueSources)}
-                        alt={player?.league?.name || "League"}
-                        className="h-20 w-20 object-contain"
-                        onError={createFallbackHandler(leagueSources)}
-                      />
-                    ) : (
-                      <span className="text-sm text-slate-400">{leagueName}</span>
-                    )}
+          <div className="relative z-10 flex flex-col gap-10 xl:flex-row xl:items-start">
+            <div className="flex-1 space-y-8">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-center sm:text-left">
+                  <div className="flex items-center justify-center sm:justify-start">
+                    <div className="flex h-28 w-28 items-center justify-center rounded-full bg-slate-900/80 shadow-xl ring-4 ring-slate-800/60">
+                      {getImageSource(leagueSources) ? (
+                        <img
+                          src={getImageSource(leagueSources)}
+                          alt={player?.league?.name || "League"}
+                          className="h-20 w-20 object-contain"
+                          onError={createFallbackHandler(leagueSources)}
+                        />
+                      ) : (
+                        <span className="text-sm text-slate-400">{leagueName}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="space-y-2 text-center sm:text-left">
+                      <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{player?.name || "Unknown Player"}</h1>
+                      <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono text-slate-300 sm:justify-start">
+                        <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{player?.tag}</span>
+                        <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">Town Hall {formatNumber(player.townHallLevel)}</span>
+                        <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{leagueName}</span>
+                      </div>
+                    </div>
+                    {labels.length ? (
+                      <div className="flex flex-wrap justify-center gap-2 text-xs sm:justify-start">
+                        {labels.map((label) => {
+                          const sources = buildLabelSources(label);
+                          const labelSrc = getImageSource(sources);
+                          return (
+                            <span
+                              key={label.id || label.name}
+                              className="inline-flex items-center gap-2 rounded-full bg-slate-900/60 px-3 py-1 ring-1 ring-slate-700/60"
+                            >
+                              {labelSrc ? (
+                                <img
+                                  src={labelSrc}
+                                  alt={label.name}
+                                  className="h-4 w-4 object-contain"
+                                  onError={createFallbackHandler(sources)}
+                                />
+                              ) : null}
+                              {label.name}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
-                <div className="space-y-4 text-center lg:text-left">
-                  <div className="space-y-2">
-                    <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{player?.name || "Unknown Player"}</h1>
-                    <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono text-slate-300 lg:justify-start">
-                      <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{player?.tag}</span>
-                      <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">Town Hall {formatNumber(player.townHallLevel)}</span>
-                      <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{leagueName}</span>
-                    </div>
-                  </div>
-                  {labels.length ? (
-                    <div className="flex flex-wrap justify-center gap-2 text-xs lg:justify-start">
-                      {labels.map((label) => {
-                        const sources = buildLabelSources(label);
-                        const labelSrc = getImageSource(sources);
-                        return (
-                          <span
-                            key={label.id}
-                            className="inline-flex items-center gap-2 rounded-full bg-slate-900/60 px-3 py-1 ring-1 ring-slate-700/60"
-                          >
-                            {labelSrc ? (
-                              <img
-                                src={labelSrc}
-                                alt={label.name}
-                                className="h-4 w-4 object-contain"
-                                onError={createFallbackHandler(sources)}
-                              />
-                            ) : null}
-                            {label.name}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                  <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                <div className="flex w-full flex-col items-center gap-2 sm:flex-row sm:justify-center lg:max-w-xs lg:flex-col lg:items-end">
+                  <div className="flex w-full flex-wrap justify-center gap-3 sm:justify-end">
                     <button
                       type="button"
                       onClick={copyPlayerTag}
@@ -1130,10 +1139,10 @@ useEffect(() => {
                         Open in game
                       </a>
                     ) : null}
-                    {copyFeedback ? (
-                      <span className="text-xs text-emerald-300" aria-live="polite">{copyFeedback}</span>
-                    ) : null}
                   </div>
+                  {copyFeedback ? (
+                    <span className="text-xs text-emerald-300" aria-live="polite">{copyFeedback}</span>
+                  ) : null}
                 </div>
               </div>
               {heroStats.length ? (
@@ -1141,20 +1150,20 @@ useEffect(() => {
                   {heroStats.map((stat) => (
                     <div
                       key={stat.label}
-                      className="rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/50 transition hover:-translate-y-1 hover:ring-amber-400/60"
+                      className="flex min-h-[110px] flex-col justify-between rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/50 transition hover:-translate-y-1 hover:ring-amber-400/60"
                     >
                       <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
-                      <p className="mt-2 text-2xl font-semibold text-white">{stat.value}</p>
+                      <p className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{stat.value}</p>
                     </div>
                   ))}
                 </div>
               ) : null}
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <aside className="w-full space-y-4 xl:max-w-sm">
               {player?.clan ? (
                 <div className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60">
                   <p className="text-xs uppercase tracking-wider text-slate-400">Clan</p>
-                  <div className="mt-3 flex items-center gap-3">
+                  <div className="mt-3 flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:gap-4 sm:text-left">
                     {getImageSource(clanBadgeSources) ? (
                       <img
                         src={getImageSource(clanBadgeSources)}
@@ -1174,7 +1183,7 @@ useEffect(() => {
                   ) : clanLabelsError ? (
                     <p className="mt-3 text-xs text-slate-400">{clanLabelsError}</p>
                   ) : clanLabels.length ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
                       {clanLabels.map((label) => {
                         const sources = buildLabelSources(label);
                         const labelSrc = getImageSource(sources);
@@ -1199,45 +1208,47 @@ useEffect(() => {
                   ) : null}
                 </div>
               ) : (
-                <div className="rounded-2xl bg-slate-900/40 p-5 ring-1 ring-slate-800/40 text-sm text-slate-300">
+                <div className="rounded-2xl bg-slate-900/40 p-5 text-center ring-1 ring-slate-800/40 text-sm text-slate-300">
                   This player is not currently in a clan.
                 </div>
               )}
-              <div className="rounded-2xl bg-slate-900/70 p-5 text-center ring-1 ring-slate-800/60">
-                <p className="text-xs uppercase tracking-wider text-slate-400">Town Hall</p>
-                {player.townHallLevel ? (
-                  <div className="mb-3 mt-2 flex justify-center">
-                    <img
-                      src={getTownHallImage(player.townHallLevel)}
-                      alt={`Town Hall ${player.townHallLevel}`}
-                      className="h-16 w-16 object-contain"
-                      onError={hideImgOnError}
-                    />
-                  </div>
-                ) : null}
-                <p className="text-3xl font-bold text-white">{formatNumber(player.townHallLevel)}</p>
-                {player.townHallWeaponLevel ? (
-                  <p className="text-xs text-slate-300">Weapon level {player.townHallWeaponLevel}</p>
-                ) : null}
-              </div>
-              {player.builderHallLevel ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
                 <div className="rounded-2xl bg-slate-900/70 p-5 text-center ring-1 ring-slate-800/60">
-                  <p className="text-xs uppercase tracking-wider text-slate-400">Builder Hall</p>
-                  <div className="mb-3 mt-2 flex justify-center">
-                    <img
-                      src={getBuilderHallImage(player.builderHallLevel)}
-                      alt={`Builder Hall ${player.builderHallLevel}`}
-                      className="h-16 w-16 object-contain"
-                      onError={hideImgOnError}
-                    />
-                  </div>
-                  <p className="text-2xl font-bold text-white">{formatNumber(player.builderHallLevel)}</p>
-                  {player.builderBaseLeague?.name ? (
-                    <p className="text-xs text-slate-300">{player.builderBaseLeague.name}</p>
+                  <p className="text-xs uppercase tracking-wider text-slate-400">Town Hall</p>
+                  {player.townHallLevel ? (
+                    <div className="mb-3 mt-2 flex justify-center">
+                      <img
+                        src={getTownHallImage(player.townHallLevel)}
+                        alt={`Town Hall ${player.townHallLevel}`}
+                        className="h-16 w-16 object-contain"
+                        onError={hideImgOnError}
+                      />
+                    </div>
+                  ) : null}
+                  <p className="text-3xl font-bold text-white">{formatNumber(player.townHallLevel)}</p>
+                  {player.townHallWeaponLevel ? (
+                    <p className="text-xs text-slate-300">Weapon level {player.townHallWeaponLevel}</p>
                   ) : null}
                 </div>
-              ) : null}
-            </div>
+                {player.builderHallLevel ? (
+                  <div className="rounded-2xl bg-slate-900/70 p-5 text-center ring-1 ring-slate-800/60">
+                    <p className="text-xs uppercase tracking-wider text-slate-400">Builder Hall</p>
+                    <div className="mb-3 mt-2 flex justify-center">
+                      <img
+                        src={getBuilderHallImage(player.builderHallLevel)}
+                        alt={`Builder Hall ${player.builderHallLevel}`}
+                        className="h-16 w-16 object-contain"
+                        onError={hideImgOnError}
+                      />
+                    </div>
+                    <p className="text-2xl font-bold text-white">{formatNumber(player.builderHallLevel)}</p>
+                    {player.builderBaseLeague?.name ? (
+                      <p className="text-xs text-slate-300">{player.builderBaseLeague.name}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </aside>
           </div>
         </section>
 
@@ -1265,66 +1276,73 @@ useEffect(() => {
             {additionalStats.length ? (
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold tracking-tight text-slate-100">Additional player stats</h3>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {additionalStats.map((stat) => (
                     <div
                       key={stat.label}
-                      className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-slate-800/40"
+                      className="flex min-h-[120px] flex-col justify-between rounded-2xl bg-slate-900/60 p-4 ring-1 ring-slate-800/40"
                     >
                       <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
-                      <p className="mt-2 text-xl font-semibold text-white">{stat.value}</p>
+                      <p className="mt-2 text-2xl font-semibold text-white">{stat.value}</p>
                     </div>
                   ))}
                 </div>
               </div>
             ) : null}
 
-            {(trophyTrendPoints.length || troopProgressData.length) ? (
-              <div className="grid gap-6 lg:grid-cols-2">
-                {trophyTrendPoints.length ? (
-                  <SeasonTrophiesChart points={trophyTrendPoints} />
-                ) : null}
-                {troopProgressData.length ? (
-                  <TroopProgressChart data={troopProgressData} />
-                ) : null}
+            {(showCharts || showLegendCard || showBuilderCard || showCapitalCard) ? (
+              <div className="grid gap-6 xl:grid-cols-[1.6fr,1fr]">
+                <div className="space-y-6">
+                  {showCharts ? (
+                    <div className="grid gap-6 lg:grid-cols-2">
+                      {trophyTrendPoints.length ? (
+                        <SeasonTrophiesChart points={trophyTrendPoints} className="flex h-full flex-col" />
+                      ) : null}
+                      {troopProgressData.length ? (
+                        <TroopProgressChart data={troopProgressData} className="flex h-full flex-col" />
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {showLegendCard ? (
+                    <div className="rounded-2xl bg-gradient-to-br from-purple-900/60 via-slate-900/80 to-slate-900/80 p-6 ring-1 ring-purple-500/30">
+                      <h3 className="text-lg font-semibold">Legend League</h3>
+                      <dl className="mt-4 grid gap-2 text-sm text-slate-200 sm:grid-cols-2">
+                        <div className="flex justify-between">
+                          <dt>Total legend trophies</dt>
+                          <dd>{formatNumber(legendStats.legendTrophies)}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt>Current season trophies</dt>
+                          <dd>{formatNumber(legendStats.currentSeason?.trophies)}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt>Current season rank</dt>
+                          <dd>{legendStats.currentSeason?.rank ? `#${legendStats.currentSeason.rank}` : "--"}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt>Best season trophies</dt>
+                          <dd>{formatNumber(legendStats.bestSeason?.trophies)}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt>Best season rank</dt>
+                          <dd>{legendStats.bestSeason?.rank ? `#${legendStats.bestSeason.rank}` : "--"}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt>Previous season trophies</dt>
+                          <dd>{formatNumber(legendStats.previousSeason?.trophies)}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-6">
+                  {showBuilderCard ? builderCard : null}
+                  {showCapitalCard ? capitalCard : null}
+                </div>
               </div>
             ) : null}
-
-            <div className="grid gap-6 lg:grid-cols-3">
-              {legendStats ? (
-                <div className="rounded-2xl bg-gradient-to-br from-purple-900/60 via-slate-900/80 to-slate-900/80 p-6 ring-1 ring-purple-500/30 lg:col-span-2">
-                  <h3 className="text-lg font-semibold">Legend League</h3>
-                  <dl className="mt-4 grid gap-2 text-sm text-slate-200 sm:grid-cols-2">
-                    <div className="flex justify-between">
-                      <dt>Total legend trophies</dt>
-                      <dd>{formatNumber(legendStats.legendTrophies)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt>Current season trophies</dt>
-                      <dd>{formatNumber(legendStats.currentSeason?.trophies)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt>Current season rank</dt>
-                      <dd>{legendStats.currentSeason?.rank ? `#${legendStats.currentSeason.rank}` : "--"}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt>Best season trophies</dt>
-                      <dd>{formatNumber(legendStats.bestSeason?.trophies)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt>Best season rank</dt>
-                      <dd>{legendStats.bestSeason?.rank ? `#${legendStats.bestSeason.rank}` : "--"}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt>Previous season trophies</dt>
-                      <dd>{formatNumber(legendStats.previousSeason?.trophies)}</dd>
-                    </div>
-                  </dl>
-                </div>
-              ) : null}
-              {builderCard}
-              {capitalCard}
-            </div>
           </section>
         ) : activeSection === "history" ? (
           <PlayerHistorySection

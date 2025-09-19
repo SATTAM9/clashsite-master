@@ -49,14 +49,15 @@ const options = {
   },
 };
 
-export default function TroopProgressChart({ data, className = "h-64" }) {
+export default function TroopProgressChart({ data, className = "" }) {
   if (!data.length) {
     return (
-      <div
-        className={`flex h-64 items-center justify-center rounded-3xl bg-slate-950/70 text-sm text-slate-300 shadow-xl ring-1 ring-slate-700/40 ${className}`}
+      <section
+        className={`flex min-h-[240px] flex-col justify-center gap-2 rounded-3xl bg-slate-950/70 p-6 text-center text-sm text-slate-300 shadow-xl ring-1 ring-slate-700/40 ${className}`}
       >
-        Troop upgrade information is unavailable for this player.
-      </div>
+        <h3 className="text-lg font-semibold text-white">Troop Upgrade Progress</h3>
+        <p>Troop upgrade information is unavailable for this player.</p>
+      </section>
     );
   }
 
@@ -76,20 +77,18 @@ export default function TroopProgressChart({ data, className = "h-64" }) {
   };
 
   return (
-    <div
+    <section
       className={`rounded-3xl bg-slate-950/70 p-6 shadow-xl ring-1 ring-slate-700/40 ${className}`}
+      aria-label="Troop upgrade progress"
     >
-      <div className="mb-4">
+      <header className="mb-4 space-y-1 text-center sm:text-left">
         <h3 className="text-xl font-semibold text-white">Troop Upgrade Progress</h3>
-        <p className="text-sm text-slate-300">
-          Top troop upgrades by completion percentage — a quick glance at where
-          to focus next.
-        </p>
-      </div>
-      <div className="h-64">
+        <p className="text-sm text-slate-300">Top troop upgrades by completion percentage, so you know what to research next.</p>
+      </header>
+      <div className="h-48 sm:h-60 lg:h-72">
         <Bar data={chartData} options={options} />
       </div>
-    </div>
+    </section>
   );
 }
 

@@ -69,7 +69,7 @@ const palette = {
   builder: "#38bdf8",
 };
 
-export default function SeasonTrophiesChart({ points, className = "h-64" }) {
+export default function SeasonTrophiesChart({ points, className = "" }) {
   const labels = points.map((point) => point.label);
 
   const legendDataset = points.map((point) =>
@@ -107,11 +107,12 @@ export default function SeasonTrophiesChart({ points, className = "h-64" }) {
 
   if (!datasets.length) {
     return (
-      <div
-        className={`flex h-64 items-center justify-center rounded-2xl bg-slate-900/60 text-sm text-slate-300 ring-1 ring-slate-700/40 ${className}`}
+      <section
+        className={`flex min-h-[240px] flex-col justify-center gap-2 rounded-3xl bg-slate-950/70 p-6 text-center text-sm text-slate-300 shadow-xl ring-1 ring-slate-700/40 ${className}`}
       >
-        Not enough seasonal data to chart yet.
-      </div>
+        <h3 className="text-lg font-semibold text-white">Season Trophy Trend</h3>
+        <p>Not enough seasonal data to chart yet.</p>
+      </section>
     );
   }
 
@@ -121,20 +122,18 @@ export default function SeasonTrophiesChart({ points, className = "h-64" }) {
   };
 
   return (
-    <div
+    <section
       className={`rounded-3xl bg-slate-950/70 p-6 shadow-xl ring-1 ring-slate-700/40 ${className}`}
+      aria-label="Season trophy trend"
     >
-      <div className="mb-4">
-        <h3 className="text-xl font-semibold text-white">Season Trophy Trend</h3>
-        <p className="text-sm text-slate-300">
-          Snapshot of recent legend and builder league performance, inspired by
-          Clash of Stats analytics.
-        </p>
-      </div>
-      <div className="h-64">
+      <header className="mb-4 space-y-1 text-center sm:text-left">
+        <h3 className="text-xl font-semibold text-white">Legend League Season Trophy Trend</h3>
+        <p className="text-sm text-slate-300">Track recent legend and builder trophy swings at a glance.</p>
+      </header>
+      <div className="h-48 sm:h-60 lg:h-72">
         <Line data={data} options={baseOptions} />
       </div>
-    </div>
+    </section>
   );
 }
 
