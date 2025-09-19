@@ -460,39 +460,195 @@ const fetchPlayerHistorySnapshot = async (tag, options = {}) => {
     throw error;
   }
 
-  const url = `${HISTORY_SOURCE_URL}?tag=${encodeURIComponent(normalizedTag)}`;
-  const response = await fetch(url, {
-    signal: options.signal,
-    headers: {
-      "User-Agent": "clashsite-history-fetch/1.0 (+https://cc.fwafarm.com/)",
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    },
-  });
+  const baseHeaders = {
+    "User-Agent": "clashsite-history-fetch/1.0 (+https://cc.fwafarm.com/)",
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  };
 
-  if (response.status === 404) {
-    return {
-      trackedActions: [],
-      nameChanges: [],
-      names: [],
-      hasNameChange: false,
-      currentClan: null,
-      source: "not_found",
-    };
+  const attemptVariants = [
+    {},
+    { rlim: 120 },
+    { rlim: 200 },
+  ];
+
+  const aggregated = {
+    trackedActions: [],
+    nameChanges: [],
+    names: [],
+    hasNameChange: false,
+    currentClan: null,
+  };
+
+  const seenTrackedActions = new Set();
+  const seenNameChanges = new Set();
+  const seenNames = new Set();
+
+  const appendTrackedAction = (entry) => {
+    if (!entry || typeof entry !== "object") {
+      return;
+    }
+    const clan = entry.clan || {};
+    const key = [
+      entry.timestamp || "",
+      entry.action || "",
+      clan.tag || "",
+      clan.name || "",
+      clan.affiliation || "",
+    ].join("|");
+    if (seenTrackedActions.has(key)) {
+      return;
+    }
+    seenTrackedActions.add(key);
+    aggregated.trackedActions.push(entry);
+  };
+
+  const appendNameChange = (entry) => {
+    if (!entry || typeof entry !== "object") {
+      return;
+    }
+    const key = [
+      entry.timestamp || "",
+      entry.from || "",
+      entry.to || "",
+    ].join("|");
+    if (seenNameChanges.has(key)) {
+      return;
+    }
+    seenNameChanges.add(key);
+    aggregated.nameChanges.push(entry);
+  };
+
+  const appendName = (value) => {
+    if (!value) {
+      return;
+    }
+    const normalized = String(value).trim();
+    if (!normalized) {
+      return;
+    }
+    const key = normalized.toLowerCase();
+    if (seenNames.has(key)) {
+      return;
+    }
+    seenNames.add(key);
+    aggregated.names.push(normalized);
+  };
+
+  const toSortableTimestamp = (value) => {
+    if (!value) {
+      return Number.NEGATIVE_INFINITY;
+    }
+    const normalized = String(value).trim();
+    if (!normalized) {
+      return Number.NEGATIVE_INFINITY;
+    }
+    const isoLike = normalized.replace(/\s+/g, " ");
+    const precise = isoLike.replace(" ", "T");
+    const parsed = new Date(precise);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.getTime();
+    }
+    const fallback = Date.parse(isoLike);
+    return Number.isNaN(fallback) ? Number.NEGATIVE_INFINITY : fallback;
+  };
+
+  let usedVariantIndex = 0;
+
+  for (let index = 0; index < attemptVariants.length; index += 1) {
+    if (index > 0 && aggregated.nameChanges.length > 0) {
+      break;
+    }
+    if (index > 0 && !aggregated.hasNameChange && !options.forceDeep) {
+      break;
+    }
+
+    const params = attemptVariants[index];
+    const searchParams = new URLSearchParams({ tag: normalizedTag });
+    Object.entries(params).forEach(([paramKey, paramValue]) => {
+      if (paramValue !== undefined && paramValue !== null && `${paramValue}` !== "") {
+        searchParams.set(paramKey, String(paramValue));
+      }
+    });
+
+    const url = `${HISTORY_SOURCE_URL}?${searchParams.toString()}`;
+    const response = await fetch(url, {
+      signal: options.signal,
+      headers: baseHeaders,
+    });
+
+    if (response.status === 404) {
+      return {
+        trackedActions: [],
+        nameChanges: [],
+        names: [],
+        hasNameChange: false,
+        currentClan: null,
+        source: "not_found",
+      };
+    }
+
+    if (!response.ok) {
+      const error = new Error(`history_request_failed_${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    const html = await response.text();
+    const parsed = parsePlayerHistoryHtml(html);
+
+    if (Array.isArray(parsed.trackedActions)) {
+      parsed.trackedActions.forEach(appendTrackedAction);
+    }
+    if (Array.isArray(parsed.nameChanges)) {
+      parsed.nameChanges.forEach(appendNameChange);
+    }
+    if (Array.isArray(parsed.names)) {
+      parsed.names.forEach(appendName);
+    }
+
+    aggregated.hasNameChange = aggregated.hasNameChange || parsed.hasNameChange;
+    if (!aggregated.currentClan && parsed.currentClan) {
+      aggregated.currentClan = parsed.currentClan;
+    }
+
+    usedVariantIndex = index;
+
+    const shouldContinue =
+      aggregated.nameChanges.length === 0 &&
+      (aggregated.hasNameChange || options.forceDeep) &&
+      index < attemptVariants.length - 1;
+
+    if (!shouldContinue) {
+      break;
+    }
   }
 
-  if (!response.ok) {
-    const error = new Error(`history_request_failed_${response.status}`);
-    error.status = response.status;
-    throw error;
+  if (!aggregated.hasNameChange && aggregated.nameChanges.length > 0) {
+    aggregated.hasNameChange = true;
   }
 
-  const html = await response.text();
-  const parsed = parsePlayerHistoryHtml(html);
+  const sortByTimestampDesc = (list) =>
+    list
+      .slice()
+      .sort((a, b) => {
+        const diff = toSortableTimestamp(b && b.timestamp) - toSortableTimestamp(a && a.timestamp);
+        if (diff !== 0) {
+          return diff;
+        }
+        const aLabel = (a && a.timestamp) || "";
+        const bLabel = (b && b.timestamp) || "";
+        return bLabel.localeCompare(aLabel);
+      });
+
+  aggregated.trackedActions = sortByTimestampDesc(aggregated.trackedActions);
+  aggregated.nameChanges = sortByTimestampDesc(aggregated.nameChanges);
+
   return {
-    ...parsed,
-    source: "ok",
+    ...aggregated,
+    source: usedVariantIndex > 0 ? "expanded" : "ok",
   };
 };
+
 
 app.get("/players/:tag/history", async (req, res) => {
   const sanitizedTag = sanitizeTag(req.params.tag);

@@ -107,10 +107,36 @@ const normalizeNameChange = (change, index) => {
   };
 };
 
+const normalizeClanEntry = (entry, index) => {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+  const timestampLabel = formatTimestamp(
+    entry.timestamp || entry.time || entry.when || ""
+  );
+  const timestamp = timestampLabel || "Timestamp unavailable";
+  const rawAction = typeof entry.action === "string" ? entry.action : "";
+  const action = rawAction.replace(/\s+/g, " " ).trim() || "Action details unavailable";
+  const clanInfo = entry.clan && typeof entry.clan === "object" ? entry.clan : {};
+  const clanName = cleanName(entry.clanName || clanInfo.name || clanInfo.raw || "");
+  const normalizedTag = String(entry.clanTag || clanInfo.tag || "").replace(/^#/, "").toUpperCase();
+  const clanTag = normalizedTag ? `#${normalizedTag}` : "";
+  const clanAffiliation = cleanName(entry.clanAffiliation || clanInfo.affiliation || "");
+  return {
+    key: entry.key || `${timestamp}-${index}`,
+    timestamp,
+    action,
+    clanName,
+    clanTag,
+    clanAffiliation,
+  };
+};
+
 const PlayerHistorySection = ({
   loading,
   error,
   nameChanges = [],
+  clanHistory = [],
   hasNameChange = false,
   onRetry,
 }) => {
@@ -119,19 +145,110 @@ const PlayerHistorySection = ({
         .map((change, index) => normalizeNameChange(change, index))
         .filter(Boolean)
     : [];
+  const normalizedClanHistory = Array.isArray(clanHistory)
+    ? clanHistory
+        .map((entry, index) => normalizeClanEntry(entry, index))
+        .filter(Boolean)
+    : [];
+
   const hasChanges = normalizedChanges.length > 0;
+  const hasClanHistory = normalizedClanHistory.length > 0;
+
+  const nameHistoryContent = hasChanges ? (
+    <ul className="space-y-3">
+      {normalizedChanges.map((entry) => {
+        const hasFrom = Boolean(entry.from);
+        const hasTo = Boolean(entry.to);
+        const fromLabel = hasFrom ? entry.from : "";
+        const toLabel = hasTo ? entry.to : "";
+        const tooltip = hasFrom || hasTo
+          ? `Changed player name${hasFrom ? ` from ${fromLabel}` : ""}${hasTo ? ` to ${toLabel}` : ""}`
+          : "Changed player name (previous/current names unavailable)";
+
+        return (
+          <li key={entry.key}>
+            <div
+              className="grid gap-2 rounded-2xl bg-slate-900/70 px-5 py-4 ring-1 ring-slate-800/60 sm:grid-cols-[auto,1fr] sm:items-center"
+              title={tooltip}
+            >
+              <span className="text-lg font-semibold text-white">{entry.timestamp}</span>
+              <div className="text-sm text-slate-300">
+                <span className="font-medium text-slate-100">Changed player name</span>
+                {hasFrom || hasTo ? (
+                  <div className="mt-1">
+                    {hasFrom ? (
+                      <>
+                        <span>from </span>
+                        <span className="font-semibold text-amber-300">{fromLabel}</span>
+                      </>
+                    ) : null}
+                    {hasFrom && hasTo ? <span> to </span> : null}
+                    {!hasFrom && hasTo ? <span>to </span> : null}
+                    {hasTo ? <span className="font-semibold text-emerald-300">{toLabel}</span> : null}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-xs text-slate-400">
+                    Name change detected, but detailed names were not provided by ChocolateClash.
+                  </div>
+                )}
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  ) : (
+    <div className="rounded-2xl bg-slate-900/70 p-6 text-center text-sm text-slate-300 ring-1 ring-slate-800/40">
+      {hasNameChange
+        ? "ChocolateClash detected a name change, but detailed timestamps require staff access."
+        : "No player name changes have been recorded yet."}
+    </div>
+  );
+
+  const clanHistoryContent = hasClanHistory ? (
+    <ul className="space-y-3">
+      {normalizedClanHistory.map((entry) => {
+        const hasContext = entry.clanName || entry.clanTag || entry.clanAffiliation;
+        return (
+          <li key={entry.key}>
+            <div className="grid gap-2 rounded-2xl bg-slate-900/70 px-5 py-4 ring-1 ring-slate-800/60 sm:grid-cols-[auto,1fr] sm:items-center">
+              <span className="text-lg font-semibold text-white">{entry.timestamp}</span>
+              <div className="text-sm text-slate-300">
+                <span className="font-medium text-slate-100">{entry.action}</span>
+                {hasContext ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                    {entry.clanName ? (
+                      <span className="font-semibold text-emerald-300">{entry.clanName}</span>
+                    ) : null}
+                    {entry.clanTag ? (
+                      <span className="rounded-full bg-slate-800/60 px-2 py-0.5 font-mono text-slate-200">{entry.clanTag}</span>
+                    ) : null}
+                    {entry.clanAffiliation ? <span>{entry.clanAffiliation}</span> : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  ) : (
+    <div className="rounded-2xl bg-slate-900/70 p-6 text-center text-sm text-slate-300 ring-1 ring-slate-800/40">
+      No clan history entries have been recorded yet.
+    </div>
+  );
 
   return (
     <section className="rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h3 className="text-2xl font-semibold tracking-tight">Player Name History</h3>
+        <h3 className="text-2xl font-semibold tracking-tight">Player History</h3>
         {loading ? <span className="text-sm text-slate-400">Loading...</span> : null}
       </div>
 
       {loading ? (
         <div className="flex min-h-[120px] items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
-          <span className="sr-only">Loading player name history</span>
+          <span className="sr-only">Loading player history</span>
         </div>
       ) : error ? (
         <div className="rounded-2xl bg-slate-900/70 p-6 text-sm text-red-300 ring-1 ring-red-500/40">
@@ -146,54 +263,16 @@ const PlayerHistorySection = ({
             </button>
           ) : null}
         </div>
-      ) : hasChanges ? (
-        <ul className="space-y-3">
-          {normalizedChanges.map((entry) => {
-            const hasFrom = Boolean(entry.from);
-            const hasTo = Boolean(entry.to);
-            const fromLabel = hasFrom ? entry.from : "";
-            const toLabel = hasTo ? entry.to : "";
-            const tooltip = hasFrom || hasTo
-              ? `Changed player name${hasFrom ? ` from ${fromLabel}` : ""}${hasTo ? ` to ${toLabel}` : ""}`
-              : "Changed player name (previous/current names unavailable)";
-
-            return (
-              <li key={entry.key}>
-                <div
-                  className="grid gap-2 rounded-2xl bg-slate-900/70 px-5 py-4 ring-1 ring-slate-800/60 sm:grid-cols-[auto,1fr] sm:items-center"
-                  title={tooltip}
-                >
-                  <span className="text-lg font-semibold text-white">{entry.timestamp}</span>
-                  <div className="text-sm text-slate-300">
-                    <span className="font-medium text-slate-100">Changed player name</span>
-                    {hasFrom || hasTo ? (
-                      <div className="mt-1">
-                        {hasFrom ? (
-                          <>
-                            <span>from </span>
-                            <span className="font-semibold text-amber-300">{fromLabel}</span>
-                          </>
-                        ) : null}
-                        {hasFrom && hasTo ? <span> to </span> : null}
-                        {!hasFrom && hasTo ? <span>to </span> : null}
-                        {hasTo ? <span className="font-semibold text-emerald-300">{toLabel}</span> : null}
-                      </div>
-                    ) : (
-                      <div className="mt-1 text-xs text-slate-400">
-                        Name change detected, but detailed names were not provided by ChocolateClash.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
       ) : (
-        <div className="rounded-2xl bg-slate-900/70 p-6 text-center text-sm text-slate-300 ring-1 ring-slate-800/40">
-          {hasNameChange
-            ? "ChocolateClash detected a name change, but detailed timestamps require staff access."
-            : "No player name changes have been recorded yet."}
+        <div className="space-y-8">
+          <div>
+            <h4 className="text-xl font-semibold text-slate-100">Name Changes</h4>
+            {nameHistoryContent}
+          </div>
+          <div>
+            <h4 className="text-xl font-semibold text-slate-100">Clan Activity</h4>
+            {clanHistoryContent}
+          </div>
         </div>
       )}
     </section>

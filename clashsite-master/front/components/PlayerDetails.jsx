@@ -214,6 +214,91 @@ const buildPlayerNameChangeEntries = (rawNameChanges, trackedActions) => {
   return entries;
 };
 
+const buildPlayerClanHistoryEntries = (trackedActions) => {
+  if (!Array.isArray(trackedActions)) {
+    return [];
+  }
+
+  const entries = [];
+  const seen = new Set();
+
+  const toSortableValue = (value) => {
+    if (!value) {
+      return Number.NEGATIVE_INFINITY;
+    }
+    const normalized = String(value).trim();
+    if (!normalized) {
+      return Number.NEGATIVE_INFINITY;
+    }
+    const parsed = new Date(normalized);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.getTime();
+    }
+    const isoLike = normalized.replace(/\s+/g, " ").replace(" ", "T");
+    const fallback = Date.parse(isoLike);
+    return Number.isNaN(fallback) ? Number.NEGATIVE_INFINITY : fallback;
+  };
+
+  trackedActions.forEach((item, index) => {
+    if (!item || typeof item !== "object") {
+      return;
+    }
+
+    const rawAction = typeof item.action === "string" ? item.action : "";
+    const actionText = rawAction.replace(/\s+/g, " ").trim();
+    const lowerAction = actionText.toLowerCase();
+
+    const clanInfo = item.clan || {};
+    const clanName = cleanHistoryName(clanInfo.name || clanInfo.raw || "");
+    const normalizedTag = String(clanInfo.tag || "").replace(/^#/, "").toUpperCase();
+    const clanTag = normalizedTag ? `#${normalizedTag}` : "";
+    const clanAffiliation = cleanHistoryName(clanInfo.affiliation || "");
+
+    const hasClanKeyword = lowerAction.includes("clan");
+    if (!hasClanKeyword && !clanName && !clanTag) {
+      return;
+    }
+
+    const rawTimestamp = item.timestamp || item.time || "";
+    const formattedTimestamp = formatHistoryTimestamp(rawTimestamp);
+    const dedupeKey = [
+      formattedTimestamp,
+      actionText,
+      clanName,
+      clanTag,
+      clanAffiliation,
+    ].join("|");
+
+    if (seen.has(dedupeKey)) {
+      return;
+    }
+    seen.add(dedupeKey);
+
+    entries.push({
+      key: `${formattedTimestamp || "timestamp-unavailable"}-${index}`,
+      timestamp: formattedTimestamp || "Timestamp unavailable",
+      action: actionText || "Action details unavailable",
+      clanName,
+      clanTag,
+      clanAffiliation,
+      sortValue: toSortableValue(rawTimestamp || formattedTimestamp),
+    });
+  });
+
+  entries.sort((a, b) => {
+    const diff = b.sortValue - a.sortValue;
+    if (diff !== 0) {
+      return diff;
+    }
+    return b.timestamp.localeCompare(a.timestamp);
+  });
+
+  return entries.map((entry) => {
+    const clone = { ...entry };
+    delete clone.sortValue;
+    return clone;
+  });
+};
 const PlayerDetails = () => {
   const { tag } = useParams();
   const [player, setPlayer] = useState(null);
@@ -231,6 +316,7 @@ const PlayerDetails = () => {
 
   const [historyState, setHistoryState] = useState({
     nameChanges: [],
+    clanHistory: [],
     hasNameChange: false,
     fetchedTag: "",
   });
@@ -401,6 +487,7 @@ useEffect(() => {
 
   const {
     nameChanges: historyNameChanges,
+    clanHistory: historyClanHistory,
     hasNameChange: historyHasNameChange,
   } = historyState;
 
@@ -458,6 +545,7 @@ useEffect(() => {
   useEffect(() => {
     setHistoryState({
       nameChanges: [],
+      clanHistory: [],
       hasNameChange: false,
       fetchedTag: "",
     });
@@ -475,6 +563,7 @@ useEffect(() => {
       setHistoryError("Player tag is missing.");
       setHistoryState({
         nameChanges: [],
+        clanHistory: [],
         hasNameChange: false,
         fetchedTag: "",
       });
@@ -506,20 +595,22 @@ useEffect(() => {
           return;
         }
 
+        const computedNameChanges = buildPlayerNameChangeEntries(payload.nameChanges, payload.trackedActions);
+        const computedClanHistory = buildPlayerClanHistoryEntries(payload.trackedActions);
+        const detectedNameChange = computedNameChanges.length > 0 || Boolean(payload.hasNameChange);
+
         if (payload.success) {
-          const computedNameChanges = buildPlayerNameChangeEntries(payload.nameChanges, payload.trackedActions);
-          const detectedNameChange = computedNameChanges.length > 0 || Boolean(payload.hasNameChange);
           setHistoryState({
             nameChanges: computedNameChanges,
+            clanHistory: computedClanHistory,
             hasNameChange: detectedNameChange,
             fetchedTag: normalizedTag,
           });
           setHistoryError("");
         } else {
-          const computedNameChanges = buildPlayerNameChangeEntries(payload.nameChanges, payload.trackedActions);
-          const detectedNameChange = computedNameChanges.length > 0 || Boolean(payload.hasNameChange);
           setHistoryState({
             nameChanges: computedNameChanges,
+            clanHistory: computedClanHistory,
             hasNameChange: detectedNameChange,
             fetchedTag: normalizedTag,
           });
@@ -533,6 +624,7 @@ useEffect(() => {
         if (!isCancelled) {
           setHistoryState({
             nameChanges: [],
+            clanHistory: [],
             hasNameChange: false,
             fetchedTag: normalizedTag,
           });
@@ -557,6 +649,7 @@ useEffect(() => {
     setHistoryError("");
     setHistoryState({
       nameChanges: [],
+      clanHistory: [],
       hasNameChange: false,
       fetchedTag: "",
     });
@@ -1200,6 +1293,7 @@ useEffect(() => {
             loading={historyLoading}
             error={historyError}
             nameChanges={historyNameChanges}
+            clanHistory={historyClanHistory}
             hasNameChange={historyHasNameChange}
             onRetry={handleHistoryRetry}
           />
@@ -1214,4 +1308,5 @@ useEffect(() => {
 };
 
 export default PlayerDetails;
+
 
