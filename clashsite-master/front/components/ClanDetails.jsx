@@ -754,8 +754,8 @@ const quickStats = useMemo(
       <div className="mx-auto max-w-6xl px-4 space-y-10 text-white">
         <section className="relative overflow-hidden rounded-3xl bg-slate-950/70 p-8 shadow-2xl ring-1 ring-slate-700/40">
           <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl" aria-hidden="true" />
-          <div className="relative z-10 grid gap-8 lg:grid-cols-[220px,1fr] lg:items-center">
-            <div className="flex flex-col items-center gap-5 text-center lg:items-start lg:text-left">
+          <div className="relative z-10 flex flex-col gap-10 xl:flex-row xl:items-start">
+            <aside className="flex flex-col items-center gap-6 text-center xl:w-60 xl:text-left">
               <div className="flex h-40 w-40 items-center justify-center rounded-full bg-slate-900/80 shadow-xl ring-4 ring-slate-800/60">
                 {getImageSource(badgeSources) ? (
                   <img
@@ -768,26 +768,52 @@ const quickStats = useMemo(
                   <span className="text-sm text-slate-400">No badge</span>
                 )}
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-3 text-xs uppercase tracking-wide text-slate-300 lg:justify-start">
+              <div className="flex flex-wrap items-center justify-center gap-3 text-xs uppercase tracking-wide text-slate-300 xl:justify-start">
                 <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">Level {formatNumber(clan?.level)}</span>
                 <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{formatNumber(membersCount)} / 50 Members</span>
                 <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{prettifyText(clan?.type)}</span>
               </div>
-            </div>
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <h1 className="text-4xl font-black tracking-tight">{clan.name || "Unknown Clan"}</h1>
-                <div className="flex flex-wrap gap-3 text-sm text-slate-200/90">
-                  <span className="rounded-full bg-slate-900/70 px-3 py-1 font-mono ring-1 ring-white/10">{clan.tag || "--"}</span>
-                  <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{prettifyText(clan?.warFrequency)}</span>
-                  <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{clan?.isWarLogPublic ? "War log: Public" : "War log: Private"}</span>
-                  {clan?.location?.name ? (
-                    <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{clan.location.name}</span>
-                  ) : null}
+            </aside>
+            <div className="flex-1 space-y-8">
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <h1 className="text-4xl font-black tracking-tight">{clan.name || "Unknown Clan"}</h1>
+                  <div className="flex flex-wrap gap-3 text-sm text-slate-200/90">
+                    <span className="rounded-full bg-slate-900/70 px-3 py-1 font-mono ring-1 ring-white/10">{clan.tag || "--"}</span>
+                    <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{prettifyText(clan?.warFrequency)}</span>
+                    <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{clan?.isWarLogPublic ? "War log: Public" : "War log: Private"}</span>
+                    {clan?.location?.name ? (
+                      <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{clan.location.name}</span>
+                    ) : null}
+                  </div>
                 </div>
+                {clan.description ? (
+                  <p className="text-sm leading-relaxed text-slate-200/90">{clan.description}</p>
+                ) : null}
               </div>
-              {clan.description ? (
-                <p className="text-sm leading-relaxed text-slate-200/90">{clan.description}</p>
+              {labelsList.length ? (
+                <div className="flex flex-wrap justify-center gap-3 text-xs sm:justify-start">
+                  {labelsList.map((label) => {
+                    const sources = buildLabelSources(label);
+                    const labelSrc = getImageSource(sources);
+                    return (
+                      <span
+                        key={label.id || label.name}
+                        className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-3 py-1 font-medium text-slate-100 ring-1 ring-slate-800/60"
+                      >
+                        {labelSrc ? (
+                          <img
+                            src={labelSrc}
+                            alt={label.name}
+                            className="h-4 w-4 object-contain"
+                            onError={createFallbackHandler(sources)}
+                          />
+                        ) : null}
+                        <span>{label.name}</span>
+                      </span>
+                    );
+                  })}
+                </div>
               ) : null}
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <button
@@ -815,20 +841,19 @@ const quickStats = useMemo(
                 {quickStats.map((stat) => (
                   <div
                     key={stat.label}
-                    className="rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/60"
+                    className="flex min-h-[110px] flex-col justify-between rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/60"
                   >
                     <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
                     <p className="mt-2 text-xl font-semibold text-white">{stat.value}</p>
                   </div>
                 ))}
               </div>
-            </div>
               {donationHighlightCards.length ? (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {donationHighlightCards.map((card) => (
                     <div
                       key={card.label}
-                      className="rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/60"
+                      className="flex min-h-[120px] flex-col justify-between rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/60"
                     >
                       <p className="text-xs uppercase tracking-wider text-slate-400">{card.label}</p>
                       <p className="mt-2 text-xl font-semibold text-white">{card.value}</p>
@@ -839,7 +864,7 @@ const quickStats = useMemo(
                   ))}
                 </div>
               ) : null}
-
+            </div>
           </div>
         </section>
 
@@ -850,7 +875,7 @@ const quickStats = useMemo(
               {performanceStats.map((stat) => (
                 <div
                   key={stat.label}
-                  className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60"
+                  className="flex min-h-[120px] flex-col justify-between rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60"
                 >
                   <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
                   <p className="mt-2 text-2xl font-semibold text-white">{stat.value}</p>
@@ -864,7 +889,7 @@ const quickStats = useMemo(
               {warSettings.map((stat) => (
                 <div
                   key={stat.label}
-                  className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60"
+                  className="flex min-h-[120px] flex-col justify-between rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60"
                 >
                   <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
                   <p className="mt-2 text-lg font-semibold text-white">{stat.value}</p>
@@ -874,33 +899,6 @@ const quickStats = useMemo(
           </div>
         </section>
 
-        {labelsList.length ? (
-          <section className="rounded-3xl bg-slate-950/70 p-8 shadow-xl ring-1 ring-slate-700/40">
-            <h3 className="text-2xl font-semibold tracking-tight">Clan Labels</h3>
-            <div className="mt-4 flex flex-wrap gap-3">
-              {labelsList.map((label) => {
-                const sources = buildLabelSources(label);
-                const labelSrc = getImageSource(sources);
-                return (
-                  <span
-                    key={label.id || label.name}
-                    className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-4 py-2 text-sm font-medium ring-1 ring-slate-800/60"
-                  >
-                    {labelSrc ? (
-                      <img
-                        src={labelSrc}
-                        alt={label.name}
-                        className="h-5 w-5 object-contain"
-                        onError={createFallbackHandler(sources)}
-                      />
-                    ) : null}
-                    <span>{label.name}</span>
-                  </span>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
 
         {warNarrative ? (
           <section className="rounded-3xl bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-slate-950/80 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
@@ -920,8 +918,7 @@ const quickStats = useMemo(
               <div className="flex flex-col gap-3 rounded-2xl bg-slate-900/70 p-5 text-sm text-slate-200 ring-1 ring-slate-800/50">
                 <p className="text-base font-semibold text-white">Rally your clan</p>
                 <p>
-                  Celebrate the story behind the stats with a quick share or invite � a nod to the
-                  narrative moments featured on Top Req Clans.
+                  Celebrate the story behind the stats with a quick share or invite -- a nod to the narrative moments featured on Top Req Clans.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <a
