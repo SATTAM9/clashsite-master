@@ -480,9 +480,12 @@ const UnitCard = ({ item, category }) => {
   const candidates = useMemo(() => buildIconCandidates(category, item), [category, item]);
   const [index, setIndex] = useState(0);
 
+  const primaryCandidate = candidates[0] || "";
+  const candidateCount = candidates.length;
+
   useEffect(() => {
     setIndex(0);
-  }, [candidates.join("|")]);
+  }, [candidateCount, primaryCandidate]);
 
   const src = candidates[index] || "";
 
@@ -785,7 +788,7 @@ const SECTION_BUILDERS = {
 };
 
 export default function PlayerCollections({ player, section }) {
-  const buildGroups = SECTION_BUILDERS[section] || (() => ({ home: [], builder: [] }));
+  const buildGroups = useMemo(() => SECTION_BUILDERS[section] || (() => ({ home: [], builder: [] })), [section]);
   const sectionGroups = useMemo(() => buildGroups(player), [player, buildGroups]);
   const heroEquipmentData = useMemo(() => buildHeroEquipmentAssignments(player?.heroEquipment ?? player?.equipment ?? []), [player]);
 

@@ -92,6 +92,10 @@ const ClanDetails = () => {
   const [copyFeedback, setCopyFeedback] = useState("");
   const [capitalActiveTab, setCapitalActiveTab] = useState("overview");
 
+  const [nameHistory, setNameHistory] = useState([]);
+  const [nameHistoryLoading, setNameHistoryLoading] = useState(false);
+  const [nameHistoryError, setNameHistoryError] = useState("");
+
   useEffect(() => {
     const controller = new AbortController();
     const fetchClan = async () => {
@@ -209,6 +213,70 @@ useEffect(() => {
   };
 }, [clan?.tag]);
 
+  useEffect(() => {
+    const normalizedTag = clan?.tag ? clan.tag.replace(/^#/, "") : "";
+
+    if (!normalizedTag) {
+      setNameHistory([]);
+      setNameHistoryError("");
+      setNameHistoryLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    let isCancelled = false;
+
+    const fetchClanHistory = async () => {
+      setNameHistoryLoading(true);
+      setNameHistoryError("");
+      setNameHistory([]);
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clans/${encodeURIComponent(normalizedTag)}/history`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        if (isCancelled) {
+          return;
+        }
+
+        if (payload.success) {
+          const entries = Array.isArray(payload.nameChanges) ? payload.nameChanges : [];
+          setNameHistory(entries);
+        } else {
+          setNameHistory([]);
+          setNameHistoryError(payload.error || "Unable to load clan history.");
+        }
+      } catch (err) {
+        if (err.name === "AbortError") {
+          return;
+        }
+        if (!isCancelled) {
+          console.error("clan history fetch", err);
+          setNameHistory([]);
+          setNameHistoryError("Unable to load clan history.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setNameHistoryLoading(false);
+        }
+      }
+    };
+
+    fetchClanHistory();
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [clan?.tag]);
+
   const latestCapitalSeason = useMemo(
     () =>
       Array.isArray(capitalSeasons) && capitalSeasons.length > 0
@@ -216,6 +284,36 @@ useEffect(() => {
         : null,
     [capitalSeasons],
   );
+
+  const nameHistoryEntries = useMemo(() => {
+    if (!Array.isArray(nameHistory) || !nameHistory.length) {
+      return [];
+    }
+
+    const seen = new Set();
+    const cleaned = [];
+
+    nameHistory.forEach((entry) => {
+      if (!entry) {
+        return;
+      }
+      const timestamp = typeof entry.timestamp === "string" ? entry.timestamp.trim() : "";
+      if (!timestamp) {
+        return;
+      }
+      const from = typeof entry.from === "string" ? entry.from.trim() : "";
+      const to = typeof entry.to === "string" ? entry.to.trim() : "";
+      const key = `${timestamp}|${from}|${to}`;
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      cleaned.push({ timestamp, from, to });
+    });
+
+    cleaned.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    return cleaned;
+  }, [nameHistory]);
 
   const capitalSummaryStats = useMemo(() => {
     if (!latestCapitalSeason) return [];
@@ -903,6 +1001,56 @@ const quickStats = useMemo(
         </section>
 
 
+
+        <section className="rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <h3 className="text-2xl font-semibold tracking-tight">Clan Name History</h3>
+            {nameHistoryLoading ? (
+              <span className="text-sm text-slate-400">Loading...</span>
+            ) : null}
+          </div>
+
+          {nameHistoryError ? (
+            <div className="rounded-2xl bg-slate-900/70 p-6 text-sm text-red-300 ring-1 ring-red-500/40">
+              {nameHistoryError}
+            </div>
+          ) : nameHistoryLoading && nameHistoryEntries.length === 0 ? (
+            <div className="flex min-h-[120px] items-center justify-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+              <span className="sr-only">Loading clan name history</span>
+            </div>
+          ) : nameHistoryEntries.length > 0 ? (
+            <ul className="space-y-3">
+              {nameHistoryEntries.map((entry) => {
+                const fromLabel = entry.from || "Unknown";
+                const toLabel = entry.to || "Unknown";
+                const tooltip = `Changed clan name from ${fromLabel} to ${toLabel}`;
+
+                return (
+                  <li key={`${entry.timestamp}|${entry.from}|${entry.to}`}>
+                    <div
+                      className="grid gap-2 rounded-2xl bg-slate-900/70 px-5 py-4 ring-1 ring-slate-800/60 sm:grid-cols-[auto,1fr] sm:items-center"
+                      title={tooltip}
+                    >
+                      <span className="text-lg font-semibold text-white">{entry.timestamp}</span>
+                      <div className="text-sm text-slate-300">
+                        <span className="font-medium text-slate-100">Changed clan name</span>
+                        <div className="mt-1">
+                          <span>from </span>
+                          <span className="font-semibold text-amber-300">{fromLabel}</span>
+                          <span> to </span>
+                          <span className="font-semibold text-emerald-300">{toLabel}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-300">No clan name changes have been recorded yet.</p>
+          )}
+        </section>
 
         <section className="rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">

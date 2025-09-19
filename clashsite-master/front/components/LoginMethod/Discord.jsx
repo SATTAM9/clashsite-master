@@ -17,7 +17,7 @@ const Discord = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const [user, setUser] = useState(() => {
+  const [, setUser] = useState(() => {
     const storge = localStorage.getItem("user");
     return storge && storge !== "undefined" ? JSON.parse(storge) : null;
   });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import PlayerCollections from "./ui/TapPlayer";
+import PlayerHistorySection from "./player/PlayerHistorySection";
 import SeasonTrophiesChart from "./analytics/SeasonTrophiesChart";
 import TroopProgressChart from "./analytics/TroopProgressChart";
 import { ASSET_BASE_URL, LOCAL_ICON_BASE, buildLabelSources, buildLocalFromRemote, createFallbackHandler, dedupeLabels, getImageSource, pickIconUrl } from "../lib/cocAssets";
@@ -17,6 +18,7 @@ const UNRANKED_LEAGUE = {
 
 const NAV_SECTIONS = [
   { id: "details", label: "Details" },
+  { id: "history", label: "History" },
   { id: "troops", label: "Troops" },
   { id: "spells", label: "Spells" },
   { id: "heroes", label: "Heroes" },
@@ -91,6 +93,127 @@ const formatDateTime = (value) => {
   return date.toLocaleString();
 };
 
+const HISTORY_TIMESTAMP_PATTERN = /(\d{4}-\d{2}-\d{2}|\d{2}[./]\d{2}[./]\d{4})(?:\s+|T)?(\d{2}:\d{2}(?::\d{2})?)?/;
+
+const formatHistoryTimestamp = (value) => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  const normalized = String(value).replace(/\\s+/g, " " ).trim();
+  if (!normalized) {
+    return "";
+  }
+  const looksIsoLike = /\\d{4}-\\d{2}-\\d{2}/.test(normalized) || /\\d{2}[./]\\d{2}[./]\\d{4}/.test(normalized);
+  if (looksIsoLike) {
+    return normalized;
+  }
+  const parsed = new Date(normalized);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toLocaleString();
+  }
+  const fallback = normalized.match(HISTORY_TIMESTAMP_PATTERN);
+  if (fallback) {
+    const [, datePart, timePart] = fallback;
+    return [datePart, timePart || ""].filter(Boolean).join(" " );
+  }
+  return normalized;
+};
+
+const cleanHistoryName = (value) => {
+  if (!value) {
+    return "";
+  }
+  return String(value).replace(/\s+/g, " " ).trim().replace(/^"|"$/g, "");
+};
+
+const parseNamesFromHistoryText = (text) => {
+  if (!text) {
+    return { from: "", to: "" };
+  }
+  const matchFromTo = text.match(/changed(?: their)? name from\s+"?([^"']+?)"?\s+to\s+"?([^"']+?)"?/i);
+  if (matchFromTo) {
+    return { from: cleanHistoryName(matchFromTo[1]), to: cleanHistoryName(matchFromTo[2]) };
+  }
+  const matchToFrom = text.match(/changed(?: their)? name to\s+"?([^"']+?)"?\s+from\s+"?([^"']+?)"?/i);
+  if (matchToFrom) {
+    return { from: cleanHistoryName(matchToFrom[2]), to: cleanHistoryName(matchToFrom[1]) };
+  }
+  const matchToOnly = text.match(/changed(?: their)? name to\s+"?([^"']+?)"?/i);
+  if (matchToOnly) {
+    return { from: "", to: cleanHistoryName(matchToOnly[1]) };
+  }
+  const matchFromOnly = text.match(/changed(?: their)? name from\s+"?([^"']+?)"?/i);
+  if (matchFromOnly) {
+    return { from: cleanHistoryName(matchFromOnly[1]), to: "" };
+  }
+  return { from: "", to: "" };
+};
+
+const buildPlayerNameChangeEntries = (rawNameChanges, trackedActions) => {
+  const entries = [];
+  const seen = new Set();
+
+  const pushEntry = (timestamp, from, to, sourceKey) => {
+    const formattedTimestamp = formatHistoryTimestamp(timestamp);
+    const label = formattedTimestamp || "Timestamp unavailable";
+    const fromLabel = cleanHistoryName(from);
+    const toLabel = cleanHistoryName(to);
+    if (!label && !fromLabel && !toLabel) {
+      return;
+    }
+    const dedupeKey = [label, fromLabel, toLabel, sourceKey || ""].join("|");
+    if (seen.has(dedupeKey)) {
+      return;
+    }
+    entries.push({ timestamp: label, from: fromLabel, to: toLabel });
+    seen.add(dedupeKey);
+  };
+
+  if (Array.isArray(rawNameChanges)) {
+    rawNameChanges.forEach((change, index) => {
+      if (change === null || change === undefined) {
+        return;
+      }
+      if (typeof change === "string") {
+        pushEntry(change, "", "", "raw:" + index);
+        return;
+      }
+      if (typeof change !== "object") {
+        return;
+      }
+      const timestampSource =
+        change.timestamp || change.time || change.date || change.when || change.raw || change.value || "";
+      let fromName = change.from || change.previous || change.old || "";
+      let toName = change.to || change.current || change.new || "";
+
+      if (!fromName && !toName) {
+        const parsed = parseNamesFromHistoryText(change.action || change.description || change.detail || "");
+        fromName = parsed.from;
+        toName = parsed.to;
+      }
+
+      pushEntry(timestampSource, fromName, toName, "raw:" + index);
+    });
+  }
+
+  if (!entries.length && Array.isArray(trackedActions)) {
+    trackedActions.forEach((item, index) => {
+      if (!item || typeof item !== "object") {
+        return;
+      }
+      const actionText = typeof item.action === "string" ? item.action : "";
+      if (!actionText || !actionText.toLowerCase().includes("changed name")) {
+        return;
+      }
+      const parsed = parseNamesFromHistoryText(actionText);
+      const timestampSource = item.timestamp || actionText;
+      pushEntry(timestampSource, parsed.from, parsed.to, "tracked:" + index);
+    });
+  }
+
+  return entries;
+};
+
 const PlayerDetails = () => {
   const { tag } = useParams();
   const [player, setPlayer] = useState(null);
@@ -105,6 +228,14 @@ const PlayerDetails = () => {
   const [clanLabels, setClanLabels] = useState([]);
   const [clanLabelsLoading, setClanLabelsLoading] = useState(false);
   const [clanLabelsError, setClanLabelsError] = useState("");
+
+  const [historyState, setHistoryState] = useState({
+    nameChanges: [],
+    hasNameChange: false,
+    fetchedTag: "",
+  });
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
 
 useEffect(() => {
   if (!player?.clan?.tag) {
@@ -268,6 +399,11 @@ useEffect(() => {
     };
   }, [player, seasonDayCount]);
 
+  const {
+    nameChanges: historyNameChanges,
+    hasNameChange: historyHasNameChange,
+  } = historyState;
+
   useEffect(() => {
     const controller = new AbortController();
     const fetchPlayer = async () => {
@@ -318,6 +454,113 @@ useEffect(() => {
       controller.abort();
     };
   }, [tag]);
+
+  useEffect(() => {
+    setHistoryState({
+      nameChanges: [],
+      hasNameChange: false,
+      fetchedTag: "",
+    });
+    setHistoryError("");
+    setHistoryLoading(false);
+  }, [tag]);
+
+  useEffect(() => {
+    if (activeSection !== "history") {
+      return;
+    }
+
+    const normalizedTag = !tag ? "" : tag.startsWith("#") ? tag.slice(1) : tag;
+    if (!normalizedTag) {
+      setHistoryError("Player tag is missing.");
+      setHistoryState({
+        nameChanges: [],
+        hasNameChange: false,
+        fetchedTag: "",
+      });
+      return;
+    }
+
+    if (historyState.fetchedTag === normalizedTag) {
+      return;
+    }
+
+    let isCancelled = false;
+    const controller = new AbortController();
+
+    const loadHistory = async () => {
+      setHistoryLoading(true);
+      setHistoryError("");
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/players/${encodeURIComponent(normalizedTag)}/history`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        if (isCancelled) {
+          return;
+        }
+
+        if (payload.success) {
+          const computedNameChanges = buildPlayerNameChangeEntries(payload.nameChanges, payload.trackedActions);
+          const detectedNameChange = computedNameChanges.length > 0 || Boolean(payload.hasNameChange);
+          setHistoryState({
+            nameChanges: computedNameChanges,
+            hasNameChange: detectedNameChange,
+            fetchedTag: normalizedTag,
+          });
+          setHistoryError("");
+        } else {
+          const computedNameChanges = buildPlayerNameChangeEntries(payload.nameChanges, payload.trackedActions);
+          const detectedNameChange = computedNameChanges.length > 0 || Boolean(payload.hasNameChange);
+          setHistoryState({
+            nameChanges: computedNameChanges,
+            hasNameChange: detectedNameChange,
+            fetchedTag: normalizedTag,
+          });
+          setHistoryError(payload.error || "Unable to load history.");
+        }
+      } catch (err) {
+        if (err.name === "AbortError") {
+          return;
+        }
+        console.error("player history fetch", err);
+        if (!isCancelled) {
+          setHistoryState({
+            nameChanges: [],
+            hasNameChange: false,
+            fetchedTag: normalizedTag,
+          });
+          setHistoryError("Unable to load history at the moment.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setHistoryLoading(false);
+        }
+      }
+    };
+
+    loadHistory();
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [activeSection, tag, historyState.fetchedTag]);
+
+  const handleHistoryRetry = () => {
+    setHistoryError("");
+    setHistoryState({
+      nameChanges: [],
+      hasNameChange: false,
+      fetchedTag: "",
+    });
+  };
 
   const leagueSources = useMemo(() => buildLeagueSources(player?.league), [player]);
   const clanBadgeSources = useMemo(() => buildBadgeSources(player?.clan?.badge), [player]);
@@ -952,6 +1195,14 @@ useEffect(() => {
               {capitalCard}
             </div>
           </section>
+        ) : activeSection === "history" ? (
+          <PlayerHistorySection
+            loading={historyLoading}
+            error={historyError}
+            nameChanges={historyNameChanges}
+            hasNameChange={historyHasNameChange}
+            onRetry={handleHistoryRetry}
+          />
         ) : (
           <section className="rounded-3xl bg-slate-950/70 p-6 text-white shadow-xl ring-1 ring-slate-700/40">
             <PlayerCollections player={player} section={activeSection} />
@@ -963,3 +1214,4 @@ useEffect(() => {
 };
 
 export default PlayerDetails;
+

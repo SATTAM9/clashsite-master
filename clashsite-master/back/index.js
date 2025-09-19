@@ -12,6 +12,7 @@ const userRoutes = require("./routes/authRoutes");
 
 
 const fs = require("fs");
+const cheerio = require("cheerio");
 const { calculateRaidsCompleted, calculateOffensiveRaidMedals } = require("clashofclans.js");
 const { Client } = require("clashofclans.js");
 const client = new Client();
@@ -91,6 +92,465 @@ const sanitizeTag = (value) => {
 
   return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
 };
+
+const HISTORY_SOURCE_URL = "https://cc.fwafarm.com/cc_n/member.php";
+const CLAN_HISTORY_SOURCE_URL = "https://cc.fwafarm.com/cc_n/clan.php";
+const LOGIN_NOTICE_REGEX = /Please log in to view more details\.?/gi;
+
+const normalizeLabel = (value = "") =>
+  value
+    .replace(/\s+/g, " ")
+    .replace(/[:：]\s*$/, "")
+    .trim()
+    .toLowerCase();
+
+const findLabelNode = ($, $root, label) => {
+  if (!$root || !$root.length) {
+    return null;
+  }
+  const target = normalizeLabel(label);
+  const match = $root
+    .find("b")
+    .filter((_, el) => normalizeLabel($(el).text()) === target)
+    .first();
+  return match.length ? match : null;
+};
+
+const textFromNode = ($, node) => {
+  if (!node) {
+    return "";
+  }
+  if (node.type === "text") {
+    return node.data || "";
+  }
+  return $(node).text();
+};
+
+const collectTextUntilBreak = ($, startNode) => {
+  const parts = [];
+  let cursor = startNode;
+  while (cursor) {
+    if (cursor.type === "tag" && cursor.name === "br") {
+      break;
+    }
+    const value = textFromNode($, cursor).replace(/\s+/g, " ").trim();
+    if (value) {
+      parts.push(value);
+    }
+    cursor = cursor.nextSibling;
+  }
+  return parts;
+};
+
+const parsePlayerHistoryHtml = (html) => {
+  const $ = cheerio.load(html);
+  const trackedActions = [];
+  const nameChanges = [];
+
+  const headingSpan = $("span")
+    .filter((_, el) => normalizeLabel($(el).text()).includes("tracked actions"))
+    .first();
+  const historyTable = headingSpan.length
+    ? headingSpan.nextAll("table").first()
+    : $("table").first();
+
+  if (historyTable && historyTable.length) {
+    historyTable.find("tr").slice(1).each((_, row) => {
+      const cells = $(row).find("td");
+      if (!cells || cells.length < 2) {
+        return;
+      }
+      const timestamp = $(cells[0]).text().replace(/\s+/g, " ").trim();
+      const actionCell = $(cells[1]);
+      const rawAction = actionCell.text().replace(/\s+/g, " ").trim();
+      const action = rawAction
+        .replace(LOGIN_NOTICE_REGEX, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const clanCell = cells.length > 2 ? $(cells[2]) : null;
+      const rawClanText = clanCell ? clanCell.text() : "";
+      const clanText = rawClanText
+        .replace(LOGIN_NOTICE_REGEX, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      let clanName = clanText;
+      let clanTag = "";
+      let affiliation = "";
+
+      if (clanCell && clanCell.length) {
+        const firstLink = clanCell.find("a").first();
+        if (firstLink.length) {
+          clanName = firstLink.text().replace(/\s+/g, " ").trim() || clanName;
+          const href = firstLink.attr("href") || "";
+          const tagMatch = href.match(/tag=([^&]+)/i);
+          if (tagMatch) {
+            clanTag = decodeURIComponent(tagMatch[1])
+              .replace(/^#/, "")
+              .replace(/^%23/, "")
+              .toUpperCase();
+          }
+        }
+        const spanText = clanCell
+          .find("span")
+          .last()
+          .text()
+          .replace(LOGIN_NOTICE_REGEX, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (spanText) {
+          affiliation = spanText.replace(/^\(|\)$/g, "");
+        }
+      }
+
+      if (timestamp || action || clanName) {
+        const clanInfo = {
+          name: clanName,
+          tag: clanTag,
+          affiliation,
+          raw: clanText,
+        };
+        const entry = {
+          timestamp,
+          action,
+          clan: clanInfo,
+        };
+        trackedActions.push(entry);
+
+        const lowerAction = action.toLowerCase();
+        if (lowerAction.includes("changed name")) {
+          let fromName = '';
+          let toName = '';
+
+          if (actionCell && actionCell.length) {
+            const spanTexts = actionCell
+              .find('span')
+              .map((_, span) => $(span).text().replace(/\s+/g, ' ').trim())
+              .get()
+              .filter(Boolean);
+            if (spanTexts.length >= 2) {
+              [fromName, toName] = spanTexts;
+            }
+          }
+
+          if (!fromName || !toName) {
+            const patterns = [
+              { pattern: /changed(?: their)? name from\s+"?([^"']+?)"?\s+to\s+"?([^"']+?)"?/i, fromIndex: 1, toIndex: 2 },
+              { pattern: /changed(?: their)? name to\s+"?([^"']+?)"?\s+from\s+"?([^"']+?)"?/i, fromIndex: 2, toIndex: 1 },
+              { pattern: /changed(?: their)? name to\s+"?([^"']+?)"?/i, fromIndex: null, toIndex: 1 },
+              { pattern: /changed(?: their)? name from\s+"?([^"']+?)"?/i, fromIndex: 1, toIndex: null },
+            ];
+
+            for (const { pattern, fromIndex, toIndex } of patterns) {
+              const match = action.match(pattern);
+              if (!match) {
+                continue;
+              }
+
+              if (!fromName && fromIndex !== null && match[fromIndex]) {
+                fromName = match[fromIndex];
+              }
+              if (!toName && toIndex !== null && match[toIndex]) {
+                toName = match[toIndex];
+              }
+
+              if (fromName && toName) {
+                break;
+              }
+            }
+          }
+
+          const clean = (value) => {
+            if (!value) {
+              return '';
+            }
+            return String(value).replace(/\s+/g, ' ').trim().replace(/^"|"$/g, '');
+          };
+
+          fromName = clean(fromName);
+          toName = clean(toName);
+
+          if (timestamp || fromName || toName) {
+            nameChanges.push({
+              timestamp,
+              from: fromName || null,
+              to: toName || null,
+            });
+          }
+        }
+      }
+    });
+  }
+
+  const topSpan = $("#top");
+  const names = [];
+  let hasNameChange = false;
+  let currentClan = null;
+
+  if (topSpan && topSpan.length) {
+    const namesLabel = findLabelNode($, topSpan, "names");
+    if (namesLabel) {
+      const collected = collectTextUntilBreak($, namesLabel[0].nextSibling);
+      collected
+        .join(" ")
+        .split(/[,|]/)
+        .map((item) => item.replace(/\s+/g, " ").trim())
+        .filter(Boolean)
+        .forEach((name) => {
+          if (!names.includes(name)) {
+            names.push(name);
+          }
+        });
+    }
+
+    hasNameChange = topSpan.text().toLowerCase().includes("changed their name");
+
+    const clanLabel = findLabelNode($, topSpan, "current clan");
+    if (clanLabel) {
+      const info = { name: "", tag: "", affiliation: "" };
+      let cursor = clanLabel[0].nextSibling;
+      while (cursor && !(cursor.type === "tag" && cursor.name === "br")) {
+        if (cursor.type === "tag" && cursor.name === "a") {
+          const anchor = $(cursor);
+          const text = anchor.text().replace(/\s+/g, " ").trim();
+          if (text) {
+            info.name = info.name || text;
+          }
+          const href = anchor.attr("href") || "";
+          const tagMatch = href.match(/tag=([^&]+)/i);
+          if (tagMatch) {
+            info.tag = decodeURIComponent(tagMatch[1])
+              .replace(/^#/, "")
+              .replace(/^%23/, "")
+              .toUpperCase();
+          }
+        } else {
+          const text = textFromNode($, cursor).replace(/\s+/g, " ").trim();
+          if (text) {
+            if (!info.name) {
+              info.name = text.replace(/^\(|\)$/g, "");
+            } else if (!info.affiliation) {
+              info.affiliation = text.replace(/^\(|\)$/g, "");
+            }
+          }
+        }
+        cursor = cursor.nextSibling;
+      }
+
+      if (info.name || info.tag || info.affiliation) {
+        currentClan = info;
+      }
+    }
+  }
+
+  return {
+    trackedActions,
+    nameChanges,
+    names,
+    hasNameChange,
+    currentClan,
+  };
+};
+
+const parseClanHistoryHtml = (html) => {
+  const $ = cheerio.load(html);
+  const nameChanges = [];
+
+  const activityHeading = $("span")
+    .filter((_, el) => normalizeLabel($(el).text()).includes("clan activity"))
+    .first();
+
+  let historyTable = activityHeading.length
+    ? activityHeading.nextAll("table").first()
+    : null;
+
+  if (!historyTable || !historyTable.length) {
+    historyTable = $("table")
+      .filter((_, table) => {
+        const headerText = $(table)
+          .find("tr")
+          .first()
+          .text()
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+        return headerText.includes("timestamp") && headerText.includes("action");
+      })
+      .first();
+  }
+
+  if (historyTable && historyTable.length) {
+    historyTable.find("tr").slice(1).each((_, row) => {
+      const cells = $(row).find("td");
+      if (!cells || cells.length < 2) {
+        return;
+      }
+      const timestamp = $(cells[0]).text().replace(/\s+/g, " ").trim();
+      const actionCell = $(cells[1]);
+      const rawAction = actionCell.text().replace(/\s+/g, " ").trim();
+      const action = rawAction
+        .replace(LOGIN_NOTICE_REGEX, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!timestamp || !action) {
+        return;
+      }
+
+      if (!action.toLowerCase().includes("changed clan name")) {
+        return;
+      }
+
+      const spans = actionCell.find("span");
+      const fromName = spans.eq(0).text().replace(/\s+/g, " ").trim();
+      const toName = spans.eq(1).text().replace(/\s+/g, " ").trim();
+
+      nameChanges.push({
+        timestamp,
+        from: fromName || null,
+        to: toName || null,
+      });
+    });
+  }
+
+  return { nameChanges };
+};
+
+const fetchClanHistorySnapshot = async (tag, options = {}) => {
+  const normalizedTag = (tag || "").replace(/^#/, "").trim();
+  if (!normalizedTag) {
+    const error = new Error("invalid_tag");
+    error.code = "invalid_tag";
+    throw error;
+  }
+
+  const url = `${CLAN_HISTORY_SOURCE_URL}?tag=${encodeURIComponent(normalizedTag)}`;
+  const response = await fetch(url, {
+    signal: options.signal,
+    headers: {
+      "User-Agent": "clashsite-clan-history-fetch/1.0 (+https://cc.fwafarm.com/)",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    },
+  });
+
+  if (response.status === 404) {
+    return {
+      nameChanges: [],
+      source: "not_found",
+    };
+  }
+
+  if (!response.ok) {
+    const error = new Error(`clan_history_request_failed_${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+
+  const html = await response.text();
+  const parsed = parseClanHistoryHtml(html);
+  return {
+    ...parsed,
+    source: "ok",
+  };
+};
+
+const fetchPlayerHistorySnapshot = async (tag, options = {}) => {
+  const normalizedTag = (tag || "").replace(/^#/, "").trim();
+  if (!normalizedTag) {
+    const error = new Error("invalid_tag");
+    error.code = "invalid_tag";
+    throw error;
+  }
+
+  const url = `${HISTORY_SOURCE_URL}?tag=${encodeURIComponent(normalizedTag)}`;
+  const response = await fetch(url, {
+    signal: options.signal,
+    headers: {
+      "User-Agent": "clashsite-history-fetch/1.0 (+https://cc.fwafarm.com/)",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    },
+  });
+
+  if (response.status === 404) {
+    return {
+      trackedActions: [],
+      nameChanges: [],
+      names: [],
+      hasNameChange: false,
+      currentClan: null,
+      source: "not_found",
+    };
+  }
+
+  if (!response.ok) {
+    const error = new Error(`history_request_failed_${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+
+  const html = await response.text();
+  const parsed = parsePlayerHistoryHtml(html);
+  return {
+    ...parsed,
+    source: "ok",
+  };
+};
+
+app.get("/players/:tag/history", async (req, res) => {
+  const sanitizedTag = sanitizeTag(req.params.tag);
+
+  if (!sanitizedTag) {
+    return res.status(400).json({ success: 0, error: "invalid_tag" });
+  }
+
+  try {
+    const historySnapshot = await fetchPlayerHistorySnapshot(sanitizedTag);
+    return res.json({
+      success: 1,
+      ...historySnapshot,
+    });
+  } catch (error) {
+    if (error && error.code === "invalid_tag") {
+      return res.status(400).json({ success: 0, error: "invalid_tag" });
+    }
+    if (error && error.name === "AbortError") {
+      return;
+    }
+    console.error("player history fetch error:", error && error.message ? error.message : error, "tag:", req.params.tag);
+    return res.status(502).json({ success: 0, error: "history_unavailable" });
+  }
+});
+
+app.get("/clans/:tag/history", async (req, res) => {
+  const sanitizedTag = sanitizeTag(req.params.tag);
+
+  if (!sanitizedTag) {
+    return res.status(400).json({ success: 0, error: "invalid_tag" });
+  }
+
+  try {
+    const historySnapshot = await fetchClanHistorySnapshot(sanitizedTag);
+    return res.json({
+      success: 1,
+      nameChanges: Array.isArray(historySnapshot.nameChanges)
+        ? historySnapshot.nameChanges
+        : [],
+      source: historySnapshot.source || "ok",
+    });
+  } catch (error) {
+    if (error && error.code === "invalid_tag") {
+      return res.status(400).json({ success: 0, error: "invalid_tag" });
+    }
+    if (error && error.name === "AbortError") {
+      return;
+    }
+    console.error(
+      "clan history fetch error:",
+      error && error.message ? error.message : error,
+      "tag:",
+      req.params.tag
+    );
+    return res.status(502).json({ success: 0, error: "history_unavailable" });
+  }
+});
 
 app.post("/clansoflocation", async function (req, res) {
   try {
@@ -453,4 +913,6 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Node app is running on http://localhost:${PORT}`);
 });
+
+
 

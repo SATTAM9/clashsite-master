@@ -84,19 +84,22 @@ const Footer = () => {
         <div className="flex flex-col items-center md:items-start gap-4">
           <div className="text-white text-xl font-bold">Social</div>
           <div className="flex gap-4">
-            {socialLinks.map(({ name, href, icon: IconComponent, className }) => (
-              <a
-                key={name}
-                href={href}
-                className={`${className} transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`}
-                target="_blank"
-                rel="noopener noreferrer me"
-                aria-label={`Open Clash on ${name}`}
-                title={`Clash on ${name}`}
-              >
-                <IconComponent size={24} aria-hidden="true" focusable="false" />
-              </a>
-            ))}
+            {socialLinks.map(({ name, href, icon, className }) => {
+              const Icon = icon;
+              return (
+                <a
+                  key={name}
+                  href={href}
+                  className={`${className} transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`}
+                  target="_blank"
+                  rel="noopener noreferrer me"
+                  aria-label={`Open Clash on ${name}`}
+                  title={`Clash on ${name}`}
+                >
+                  <Icon size={24} aria-hidden="true" focusable="false" />
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>

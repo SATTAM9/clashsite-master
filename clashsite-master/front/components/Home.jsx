@@ -280,8 +280,11 @@ const Home = () => {
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              {socialChannels.map(
-                ({ name, href, description, icon: IconComponent, metric, ringClass, badgeClass, badgeTextClass, actionLabel }) => (
+              {socialChannels.map((
+                { name, href, description, icon, metric, ringClass, badgeClass, badgeTextClass, actionLabel }
+              ) => {
+                const Icon = icon;
+                return (
                   <a
                     key={name}
                     href={href}
@@ -292,7 +295,7 @@ const Home = () => {
                   >
                     <div className="flex items-center gap-3">
                       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/80 text-2xl text-white transition group-hover:scale-105">
-                        <IconComponent aria-hidden="true" />
+                        <Icon aria-hidden="true" />
                       </span>
                       <div>
                         <p className="text-lg font-semibold text-white">{name}</p>
@@ -307,8 +310,8 @@ const Home = () => {
                       <span aria-hidden="true">&gt;</span>
                     </span>
                   </a>
-                ),
-              )}
+                );
+              })}
             </div>
           </div>
           <div className="space-y-3">
