@@ -73,6 +73,7 @@ export default function ClanByTag() {
     >
       <img
         src="/fic.jpeg"
+          loading="lazy"
         alt="Clash"
         className="mx-auto w-50 mb-4 animate-bounce"
       />

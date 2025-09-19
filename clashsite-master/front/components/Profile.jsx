@@ -28,6 +28,7 @@ const Profile = () => {
       <div className="absolute inset-0">
         <img
           src="/logo.png"
+          loading="lazy"
           alt="Clash battleground backdrop"
           className="h-full w-full object-cover"
         />

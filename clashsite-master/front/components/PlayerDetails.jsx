@@ -113,6 +113,7 @@ useEffect(() => {
   }
 
   let isCancelled = false;
+  const controller = new AbortController();
 
   const fetchCapitalRaid = async () => {
     setCapitalLoading(true);
@@ -122,7 +123,8 @@ useEffect(() => {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/clans/${encodeURIComponent(normalizedTag)}/capitalraid?limit=1`
+        `${API_BASE_URL}/clans/${encodeURIComponent(normalizedTag)}/capitalraid?limit=1`,
+        { signal: controller.signal }
       );
 
       if (!response.ok) {
@@ -152,6 +154,9 @@ useEffect(() => {
         setCapitalError(payload.error || "Unable to load capital raid data.");
       }
     } catch (err) {
+      if (err.name === "AbortError") {
+        return;
+      }
       if (!isCancelled) {
         console.error("player capital raid fetch", err);
         setCapitalOverview(null);
@@ -168,6 +173,7 @@ useEffect(() => {
 
   return () => {
     isCancelled = true;
+    controller.abort();
   };
 }, [player?.clan?.tag, player?.tag]);
 
@@ -189,6 +195,7 @@ useEffect(() => {
     }
 
     let isCancelled = false;
+    const controller = new AbortController();
     setClanLabelsLoading(true);
     setClanLabelsError("");
 
@@ -200,6 +207,7 @@ useEffect(() => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tag: normalizedTag }),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -221,6 +229,9 @@ useEffect(() => {
           }
         }
       } catch (err) {
+        if (err.name === "AbortError") {
+          return;
+        }
         if (!isCancelled) {
           console.error("clan labels fetch", err);
           setClanLabels([]);
@@ -237,6 +248,7 @@ useEffect(() => {
 
     return () => {
       isCancelled = true;
+      controller.abort();
     };
   }, [player?.clan?.tag, player?.clan?.labels]);
 
@@ -257,6 +269,7 @@ useEffect(() => {
   }, [player, seasonDayCount]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchPlayer = async () => {
       setLoading(true);
       setError("");
@@ -275,6 +288,7 @@ useEffect(() => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ tag: normalizedTag }),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -288,6 +302,9 @@ useEffect(() => {
           throw new Error(payload.error || "Unable to load player details.");
         }
       } catch (err) {
+        if (err.name === "AbortError") {
+          return;
+        }
         console.error("playerbytag", err);
         setPlayer(null);
         setError("Unable to fetch the player profile right now. Please try again later.");
@@ -297,6 +314,9 @@ useEffect(() => {
     };
 
     fetchPlayer();
+    return () => {
+      controller.abort();
+    };
   }, [tag]);
 
   const leagueSources = useMemo(() => buildLeagueSources(player?.league), [player]);

@@ -199,6 +199,7 @@ const Login = () => {
 
       <img
         src={"/fic.jpeg"}
+        loading="lazy"
         alt="Clash"
         className="mx-auto w-20 mb-4 animate-bounce"
       />

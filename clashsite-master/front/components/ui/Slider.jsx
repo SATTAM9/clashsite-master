@@ -24,7 +24,7 @@ export default function Carousel() {
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
         {images.map((src, idx) => (
-          <img key={idx} src={src} alt="" className="w-full flex-shrink-0"/>
+          <img key={idx} src={src} alt="" className="w-full flex-shrink-0" loading="lazy"/>
         ))}
       </div>
 

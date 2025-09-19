@@ -93,6 +93,7 @@ const ClanDetails = () => {
   const [capitalActiveTab, setCapitalActiveTab] = useState("overview");
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchClan = async () => {
       setLoading(true);
       setError("");
@@ -111,6 +112,7 @@ const ClanDetails = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ tag: normalizedTag }),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -124,6 +126,9 @@ const ClanDetails = () => {
           throw new Error(payload.error || "Unable to load clan details.");
         }
       } catch (err) {
+        if (err.name === "AbortError") {
+          return;
+        }
         console.error("clanbytagForDetails", err);
         setClan(null);
         setError("Unable to fetch clan information right now. Please try again later.");
@@ -133,6 +138,9 @@ const ClanDetails = () => {
     };
 
     fetchClan();
+    return () => {
+      controller.abort();
+    };
   }, [tag]);
 
   const badgeSources = useMemo(() => buildBadgeSources(clan?.badge), [clan]);
@@ -148,6 +156,7 @@ useEffect(() => {
   }
 
   let isCancelled = false;
+  const controller = new AbortController();
 
   const fetchCapitalRaid = async () => {
     setCapitalLoading(true);
@@ -157,7 +166,8 @@ useEffect(() => {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/clans/${encodeURIComponent(normalizedTag)}/capitalraid?limit=3`
+        `${API_BASE_URL}/clans/${encodeURIComponent(normalizedTag)}/capitalraid?limit=3`,
+        { signal: controller.signal }
       );
 
       if (!response.ok) {
@@ -176,6 +186,9 @@ useEffect(() => {
         setCapitalError(payload.error || "Unable to load capital raid data.");
       }
     } catch (err) {
+      if (err.name === "AbortError") {
+        return;
+      }
       if (!isCancelled) {
         console.error("capitalraid fetch", err);
         setCapitalSeasons([]);
@@ -192,6 +205,7 @@ useEffect(() => {
 
   return () => {
     isCancelled = true;
+    controller.abort();
   };
 }, [clan?.tag]);
 

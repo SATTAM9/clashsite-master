@@ -1,25 +1,25 @@
 ﻿import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
-import Header from "../components/layouts/Header";
-import Home from "../components/Home";
-import Footer from "../components/layouts/Footer";
-import ClanDetails from "../components/ClanDetails";
-import PlayerDetails from "../components/PlayerDetails";
-import Profile from "../components/Profile";
-import Clansdonatin from "../components/clansdonatin/Clansdonatin.jsx";
-import ClanByTag from "../components/headerPages/ClanByTag";
-import PlayerByTag from "../components/headerPages/PlayerByTag";
-import PlayersInClan from "../components/headerPages/PlayersInClan";
+import { Suspense, lazy } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import Discord from "../components/LoginMethod/Discord";
-import Login from "../components/LoginMethod/Login";
-import SignUp from "../components/LoginMethod/SignUp";
-import ForgetPassword from "../components/LoginMethod/ForgetPassword";
-import ResetPassword from "../components/LoginMethod/ResetPassword";
-import PlayerProfile from "../components/LoginMethod/PlayerProfile";
-import XpCalculator from "../components/XpCalculator";
 import { LanguageProvider } from "./i18n/LanguageContext";
 
+const Header = lazy(() => import("../components/layouts/Header"));
+const Footer = lazy(() => import("../components/layouts/Footer"));
+const Home = lazy(() => import("../components/Home"));
+const ClanDetails = lazy(() => import("../components/ClanDetails"));
+const PlayerDetails = lazy(() => import("../components/PlayerDetails"));
+const Profile = lazy(() => import("../components/Profile"));
+const Clansdonatin = lazy(() => import("../components/clansdonatin/Clansdonatin.jsx"));
+const ClanByTag = lazy(() => import("../components/headerPages/ClanByTag"));
+const PlayerByTag = lazy(() => import("../components/headerPages/PlayerByTag"));
+const PlayersInClan = lazy(() => import("../components/headerPages/PlayersInClan"));
+const Login = lazy(() => import("../components/LoginMethod/Login"));
+const SignUp = lazy(() => import("../components/LoginMethod/SignUp"));
+const ForgetPassword = lazy(() => import("../components/LoginMethod/ForgetPassword"));
+const ResetPassword = lazy(() => import("../components/LoginMethod/ResetPassword"));
+const PlayerProfile = lazy(() => import("../components/LoginMethod/PlayerProfile"));
+const XpCalculator = lazy(() => import("../components/XpCalculator"));
 const GOOGLE_CLIENT_ID =
   "171615105804-bbjsnv1sqh0i0q30jprdndjgi6c5oiu5.apps.googleusercontent.com";
 
@@ -28,11 +28,11 @@ function App() {
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <LanguageProvider>
         <Router>
-          <div className="app">
-            <Header />
-            {/* <Google /> */}
+          <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-white">Loading...</div>}>
+            <div className="app">
+              <Header />
 
-            <Routes>
+              <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
@@ -51,9 +51,10 @@ function App() {
               <Route path="/players/player" element={<PlayerByTag />} />
               <Route path="/players/plsyersclan" element={<PlayersInClan />} />
               <Route path="/xp-calculator" element={<XpCalculator />} />
-            </Routes>
-            <Footer />
-          </div>
+              </Routes>
+              <Footer />
+            </div>
+          </Suspense>
         </Router>
       </LanguageProvider>
     </GoogleOAuthProvider>

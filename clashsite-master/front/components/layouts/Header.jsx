@@ -16,6 +16,7 @@ const Header = () => {
         <a className="flex items-center gap-2 group" href="/">
           <img
             src="/fic.jpeg"
+          loading="lazy"
             alt="logo"
             className="w-10 transition-transform duration-300 group-hover:scale-110"
           />

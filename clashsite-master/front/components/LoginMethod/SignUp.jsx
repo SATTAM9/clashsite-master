@@ -92,6 +92,7 @@ const SignUp = () => {
       <div className="absolute inset-0">
         <img
           src="/logo.png"
+          loading="lazy"
           alt="Clash battleground backdrop"
           className="h-full w-full object-cover"
         />
@@ -137,6 +138,7 @@ const SignUp = () => {
               <div className="flex flex-col items-center text-center">
                 <img
                   src="/fic.jpeg"
+          loading="lazy"
                   alt="ReqClans crest"
                   className="mb-6 w-20 animate-bounce"
                 />
