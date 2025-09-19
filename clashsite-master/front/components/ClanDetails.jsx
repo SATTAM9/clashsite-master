@@ -815,6 +815,42 @@ const quickStats = useMemo(
                   })}
                 </div>
               ) : null}
+              {warNarrative ? (
+                <div className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60">
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <h2 className="text-xl font-semibold text-white">War Room Insights</h2>
+                      <p className="text-sm text-slate-300">{warNarrative.headline}</p>
+                    </div>
+                    <ul className="space-y-1 text-sm text-slate-200">
+                      {warNarrative.details.map((detail) => (
+                        <li key={detail} className="flex items-start gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true" />
+                          <span>{detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="rounded-2xl bg-slate-950/70 p-4 text-sm text-slate-200 ring-1 ring-slate-800/60">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-base font-semibold text-white">Rally your clan</p>
+                          <p className="mt-1 text-sm text-slate-300">
+                            Celebrate the story behind the stats with a quick share or invite -- a nod to the narrative moments featured on Top Req Clans.
+                          </p>
+                        </div>
+                        <a
+                          href={warShareUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-sky-400"
+                        >
+                          Share on X
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <button
                   type="button"
@@ -900,48 +936,6 @@ const quickStats = useMemo(
         </section>
 
 
-        {warNarrative ? (
-          <section className="rounded-3xl bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-slate-950/80 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
-              <div className="space-y-3">
-                <h3 className="text-2xl font-semibold tracking-tight">War Room Insights</h3>
-                <p className="text-sm text-slate-300">{warNarrative.headline}</p>
-                <ul className="space-y-2 text-sm text-slate-300">
-                  {warNarrative.details.map((detail) => (
-                    <li key={detail} className="flex items-start gap-2">
-                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true" />
-                      <span>{detail}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex flex-col gap-3 rounded-2xl bg-slate-900/70 p-5 text-sm text-slate-200 ring-1 ring-slate-800/50">
-                <p className="text-base font-semibold text-white">Rally your clan</p>
-                <p>
-                  Celebrate the story behind the stats with a quick share or invite -- a nod to the narrative moments featured on Top Req Clans.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <a
-                    href={warShareUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center rounded-full bg-sky-500 px-4 py-2 font-semibold text-slate-900 transition hover:bg-sky-400"
-                  >
-                    Share on X
-                  </a>
-                  <a
-                    href={buildClanIngameLink(clan.tag)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center rounded-full border border-slate-600 px-4 py-2 font-semibold text-slate-100 transition hover:border-amber-400 hover:text-amber-300"
-                  >
-                    View in game
-                  </a>
-                </div>
-              </div>
-            </div>
-          </section>
-        ) : null}
 
         <section className="rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
