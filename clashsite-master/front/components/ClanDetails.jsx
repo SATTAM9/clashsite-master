@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import CapitalLootChart from "./analytics/CapitalLootChart";
 import { ASSET_BASE_URL, LOCAL_ICON_BASE, buildLabelSources, buildLocalFromRemote, createFallbackHandler, dedupeLabels, getImageSource, pickIconUrl } from "../lib/cocAssets";
@@ -405,17 +405,94 @@ useEffect(() => {
     return { headline, details, winRate };
   }, [clan]);
 
-  const warShareUrl = useMemo(() => {
+
+  const [shareFeedback, setShareFeedback] = useState("");
+  const [warShareLink, setWarShareLink] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWarShareLink(window.location.href);
+    }
+  }, [clan?.tag]);
+
+  const warShareMessage = useMemo(() => {
     if (!clan?.name || !clan?.tag || !warNarrative) {
-      return "https://twitter.com/intent/tweet?text=Recruiting%20warriors%20in%20Clash%20of%20Clans!";
+      return "Recruiting warriors in Clash of Clans! Join our clan today.";
+    }
+    return `Clan ${clan.name} (${clan.tag}) is cruising with a ${warNarrative.winRate}% war win rate! Join the fight.`;
+  }, [clan?.name, clan?.tag, warNarrative]);
+
+  const warShareUrl = useMemo(() => {
+    const message = warShareMessage || "Recruiting warriors in Clash of Clans! Join our clan today.";
+    return `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`;
+  }, [warShareMessage]);
+
+  const warTelegramUrl = useMemo(() => {
+    const shareUrl = encodeURIComponent(warShareLink || "https://link.clashofclans.com/en");
+    const message = encodeURIComponent(warShareMessage || "Recruiting warriors in Clash of Clans! Join our clan today.");
+    return `https://t.me/share/url?url=${shareUrl}&text=${message}`;
+  }, [warShareLink, warShareMessage]);
+
+  const combinedWarShareText = useMemo(() => {
+    return `${warShareMessage}${warShareLink ? ` ${warShareLink}` : ""}`.trim();
+  }, [warShareMessage, warShareLink]);
+
+  const handleInstagramShare = useCallback(async () => {
+    const defaultMessage = combinedWarShareText || "Recruiting warriors in Clash of Clans!";
+    const shareData = {
+      title: clan?.name ? `Clan ${clan.name}` : "Clash of Clans war highlight",
+      text: defaultMessage,
+      url: warShareLink || undefined,
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share(shareData);
+        setShareFeedback("Share dialog opened.");
+        setTimeout(() => setShareFeedback(""), 2500);
+        return;
+      }
+    } catch (error) {
+      console.error("instagram share", error);
     }
 
-    const textToShare = encodeURIComponent(
-      `Clan ${clan.name} (${clan.tag}) is cruising with a ${warNarrative.winRate}% war win rate! Join the fight.`,
-    );
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(defaultMessage);
+        setShareFeedback("Share text copied!");
+        setTimeout(() => setShareFeedback(""), 2500);
+        return;
+      }
+    } catch (error) {
+      console.error("copy share text", error);
+    }
 
-    return `https://twitter.com/intent/tweet?text=${textToShare}`;
-  }, [clan, warNarrative]);
+    setShareFeedback("Copy this link: " + (warShareLink || "unavailable"));
+    setTimeout(() => setShareFeedback(""), 2500);
+  }, [clan?.name, combinedWarShareText, warShareLink]);
+
+  const handleCopyShareLink = useCallback(async () => {
+    const textToCopy = combinedWarShareText || warShareLink || "";
+    if (!textToCopy) {
+      setShareFeedback("Nothing to copy right now.");
+      setTimeout(() => setShareFeedback(""), 2500);
+      return;
+    }
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(textToCopy);
+        setShareFeedback("Share link copied!");
+        setTimeout(() => setShareFeedback(""), 2500);
+        return;
+      }
+    } catch (error) {
+      console.error("copy share link", error);
+    }
+
+    setShareFeedback("Copy this link: " + textToCopy);
+    setTimeout(() => setShareFeedback(""), 2500);
+  }, [combinedWarShareText, warShareLink]);
 
   const capitalLogs = useMemo(() => {
     if (!latestCapitalSeason) {
@@ -814,8 +891,7 @@ const quickStats = useMemo(
                     );
                   })}
                 </div>
-              ) : null}
-              {warNarrative ? (
+              ) : null}`r`n              {warNarrative ? (
                 <div className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60">
                   <div className="space-y-3">
                     <div className="space-y-1">
@@ -838,15 +914,42 @@ const quickStats = useMemo(
                             Celebrate the story behind the stats with a quick share or invite -- a nod to the narrative moments featured on Top Req Clans.
                           </p>
                         </div>
-                        <a
-                          href={warShareUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-sky-400"
-                        >
-                          Share on X
-                        </a>
+                        <div className="flex flex-wrap gap-3 sm:justify-end">
+                          <a
+                            href={warShareUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-sky-400"
+                          >
+                            Share on X
+                          </a>
+                          <a
+                            href={warTelegramUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-emerald-400"
+                          >
+                            Share on Telegram
+                          </a>
+                          <button
+                            type="button"
+                            onClick={handleInstagramShare}
+                            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-amber-400 px-4 py-2 text-sm font-semibold text-white transition hover:from-pink-400 hover:to-amber-300"
+                          >
+                            Share to Instagram
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCopyShareLink}
+                            className="inline-flex items-center justify-center rounded-full border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-amber-400 hover:text-amber-300"
+                          >
+                            Copy share link
+                          </button>
+                        </div>
                       </div>
+                      {shareFeedback ? (
+                        <p className="mt-2 text-xs text-emerald-300 sm:text-right">{shareFeedback}</p>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -1151,3 +1254,5 @@ const quickStats = useMemo(
 };
 
 export default ClanDetails;
+
+

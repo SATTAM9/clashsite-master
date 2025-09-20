@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import PlayerCollections from "./ui/TapPlayer";
 import PlayerHistorySection from "./player/PlayerHistorySection";
@@ -351,6 +351,98 @@ const PlayerDetails = () => {
   const [clanLabels, setClanLabels] = useState([]);
   const [clanLabelsLoading, setClanLabelsLoading] = useState(false);
   const [clanLabelsError, setClanLabelsError] = useState("");
+
+  const [shareFeedback, setShareFeedback] = useState("");
+  const [shareLink, setShareLink] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setShareLink(window.location.href);
+    }
+  }, [player?.tag]);
+
+  const shareMessage = useMemo(() => {
+    if (!player?.name || !player?.tag) {
+      return "Check out this Clash of Clans profile!";
+    }
+
+    const clanName = player?.clan?.name ? ` from clan ${player.clan.name}` : "";
+    const trophies = typeof player?.trophies === "number" ? ` with ${formatNumber(player.trophies)} trophies` : "";
+    return `Player ${player.name} (${player.tag})${clanName}${trophies}.`
+      .replace(/\s+/g, " ")
+      .trim();
+  }, [player?.name, player?.tag, player?.clan?.name, player?.trophies]);
+
+  const shareUrlX = useMemo(() => {
+    return `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}`;
+  }, [shareMessage]);
+
+  const shareUrlTelegram = useMemo(() => {
+    const shareUrl = encodeURIComponent(shareLink || "https://link.clashofclans.com/en");
+    const message = encodeURIComponent(shareMessage);
+    return `https://t.me/share/url?url=${shareUrl}&text=${message}`;
+  }, [shareLink, shareMessage]);
+
+  const combinedShareText = useMemo(() => {
+    return `${shareMessage}${shareLink ? ` ${shareLink}` : ""}`.trim();
+  }, [shareMessage, shareLink]);
+
+  const handleInstagramShare = useCallback(async () => {
+    const defaultMessage = combinedShareText || "Check out this Clash of Clans profile!";
+    const shareData = {
+      title: player?.name ? `Player ${player.name}` : "Clash of Clans profile",
+      text: defaultMessage,
+      url: shareLink || undefined,
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share(shareData);
+        setShareFeedback("Share dialog opened.");
+        setTimeout(() => setShareFeedback(""), 2500);
+        return;
+      }
+    } catch (error) {
+      console.error("player share", error);
+    }
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(defaultMessage);
+        setShareFeedback("Share text copied!");
+        setTimeout(() => setShareFeedback(""), 2500);
+        return;
+      }
+    } catch (error) {
+      console.error("player share copy", error);
+    }
+
+    setShareFeedback(`Copy this link: ${shareLink || "unavailable"}`);
+    setTimeout(() => setShareFeedback(""), 2500);
+  }, [combinedShareText, player?.name, shareLink]);
+
+  const handleCopyShareLink = useCallback(async () => {
+    const textToCopy = combinedShareText || shareLink || "";
+    if (!textToCopy) {
+      setShareFeedback("Nothing to copy right now.");
+      setTimeout(() => setShareFeedback(""), 2500);
+      return;
+    }
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(textToCopy);
+        setShareFeedback("Share link copied!");
+        setTimeout(() => setShareFeedback(""), 2500);
+        return;
+      }
+    } catch (error) {
+      console.error("player share copy link", error);
+    }
+
+    setShareFeedback(`Copy this link: ${textToCopy}`);
+    setTimeout(() => setShareFeedback(""), 2500);
+  }, [combinedShareText, shareLink]);
 
   const [historyState, setHistoryState] = useState({
     nameChanges: [],
@@ -1145,6 +1237,51 @@ useEffect(() => {
                   ) : null}
                 </div>
               </div>
+              <div className="rounded-2xl bg-slate-900/70 p-4 text-sm text-slate-200 ring-1 ring-slate-800/60">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-base font-semibold text-white">Share this player</p>
+                    <p className="mt-1 text-sm text-slate-300">
+                      Spread {player?.name ? `${player.name}` : "this player"} profile with your crew.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3 sm:justify-end">
+                    <a
+                      href={shareUrlX}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-sky-400"
+                    >
+                      Share on X
+                    </a>
+                    <a
+                      href={shareUrlTelegram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-emerald-400"
+                    >
+                      Share on Telegram
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleInstagramShare}
+                      className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-amber-400 px-4 py-2 text-sm font-semibold text-white transition hover:from-pink-400 hover:to-amber-300"
+                    >
+                      Share to Instagram
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyShareLink}
+                      className="inline-flex items-center justify-center rounded-full border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-amber-400 hover:text-amber-300"
+                    >
+                      Copy share link
+                    </button>
+                  </div>
+                </div>
+                {shareFeedback ? (
+                  <p className="mt-2 text-xs text-emerald-300 sm:text-right">{shareFeedback}</p>
+                ) : null}
+              </div>
               {heroStats.length ? (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {heroStats.map((stat) => (
@@ -1364,5 +1501,6 @@ useEffect(() => {
 };
 
 export default PlayerDetails;
+
 
 
