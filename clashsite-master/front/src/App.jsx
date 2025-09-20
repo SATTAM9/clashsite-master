@@ -24,6 +24,7 @@ const XpCalculator = lazy(() => import("../components/XpCalculator"));
 const AdminLayout = lazy(() => import("../components/admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("../components/admin/pages/AdminDashboard"));
 const AdminContent = lazy(() => import("../components/admin/pages/AdminContent"));
+const AdminDonations = lazy(() => import("../components/admin/pages/AdminDonations"));
 const RequireAdmin = lazy(() => import("../components/admin/RequireAdmin"));
 const GOOGLE_CLIENT_ID =
   "171615105804-bbjsnv1sqh0i0q30jprdndjgi6c5oiu5.apps.googleusercontent.com";
@@ -33,7 +34,7 @@ const suspenseFallback = (
     <div className="flex flex-col items-center gap-3">
       <span className="h-10 w-10 animate-spin rounded-full border-[3px] border-slate-700 border-t-sky-400" />
       <span className="text-sm font-medium tracking-wide text-slate-400">
-        Loading the ReqClans experience…
+        Loading the ReqClans experience...
       </span>
     </div>
   </div>
@@ -76,6 +77,7 @@ function App() {
                   >
                     <Route index element={<AdminDashboard />} />
                     <Route path="content" element={<AdminContent />} />
+                    <Route path="donations" element={<AdminDonations />} />
                     <Route path="*" element={<Navigate to="/admin" replace />} />
                   </Route>
                 </Routes>

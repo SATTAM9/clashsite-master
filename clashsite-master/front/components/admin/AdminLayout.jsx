@@ -5,28 +5,41 @@ import { getStoredUser } from "../../lib/adminAuth";
 const navItems = [
   {
     to: "/admin",
-    label: "???? ????",
-    description: "???? ?????? ?????? ???????",
+    label: "Overview",
+    description: "Monitor ReqClans performance and health.",
     exact: true,
   },
   {
     to: "/admin/content",
-    label: "????? ???????",
-    description: "???? ???? ?? ????? ?????? ????????",
+    label: "Content Studio",
+    description: "Manage the hero banner and featured links.",
+  },
+  {
+    to: "/admin/donations",
+    label: "Donations",
+    description: "Curate clans for the donations leaderboard.",
   },
   {
     to: "/admin/players",
-    label: "????????",
-    description: "????? ???????? ??????????",
+    label: "Players",
+    description: "Player management coming soon.",
     disabled: true,
   },
   {
     to: "/admin/settings",
-    label: "?????????",
-    description: "????? ???? ????????",
+    label: "Settings",
+    description: "Configuration tools coming soon.",
     disabled: true,
   },
 ];
+
+const titleByPath = {
+  "/admin": "Overview",
+  "/admin/content": "Content Studio",
+  "/admin/donations": "Donation Tracker",
+  "/admin/players": "Player Management",
+  "/admin/settings": "Settings",
+};
 
 const AdminLayout = () => {
   const location = useLocation();
@@ -39,7 +52,7 @@ const AdminLayout = () => {
     navigate("/login", { replace: true });
   };
 
-  const currentTitle = location.pathname === "/admin" ? "???? ????" : "????? ??????";
+  const currentTitle = titleByPath[location.pathname] || "Overview";
 
   return (
     <div className="min-h-screen bg-[#050816] text-slate-100">
@@ -58,7 +71,7 @@ const AdminLayout = () => {
               </div>
             </div>
             <p className="mt-4 text-xs text-slate-400">
-              ??? ?????? ????? ?????? ??????? ?? ??????? ??????????. ???? ?? ??? ?????? ?????? ??????? ???? ???????.
+              Stay on top of every API update and content change without leaving this dashboard. Use the tools on the right to move between analytics, players, and content editing.
             </p>
           </div>
 
@@ -105,13 +118,13 @@ const AdminLayout = () => {
           <header className="flex flex-col gap-4 rounded-3xl border border-white/5 bg-slate-950/80 px-5 py-4 shadow-[0_30px_70px_-40px_rgba(15,23,42,0.8)] sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-6">
             <div>
               <p className="text-xs uppercase tracking-[0.45em] text-slate-500">
-                ???? ??????
+                Admin Portal
               </p>
               <h1 className="text-2xl font-semibold text-white">{currentTitle}</h1>
             </div>
             <div className="flex flex-col gap-2 text-sm text-slate-300 sm:flex-row sm:items-center sm:gap-4">
               <div className="text-right sm:text-left">
-                <p className="font-semibold text-white">{user?.name || "????"}</p>
+                <p className="font-semibold text-white">{user?.name || "Admin"}</p>
                 <p className="text-xs text-slate-400">{user?.email || "admin@reqclans.com"}</p>
               </div>
               <div className="flex gap-2">
@@ -120,14 +133,14 @@ const AdminLayout = () => {
                   onClick={() => navigate("/")}
                   className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:bg-white/10"
                 >
-                  ??? ??????
+                  View Site
                 </button>
                 <button
                   type="button"
                   onClick={handleSignOut}
                   className="rounded-xl bg-rose-500 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-rose-400"
                 >
-                  ????? ????
+                  Sign Out
                 </button>
               </div>
             </div>

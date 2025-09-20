@@ -93,6 +93,72 @@ const sanitizeTag = (value) => {
   return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
 };
 
+const DONATION_CLANS_FILE = path.join(
+  process.env.PWD || __dirname,
+  "public",
+  "files",
+  "DonationClans.json"
+);
+
+const CLAN_TAG_REGEX = /^#[A-Z0-9]{3,}$/;
+
+const normalizeDonationTag = (value) => {
+  const sanitized = sanitizeTag(value);
+  if (!sanitized) {
+    return "";
+  }
+
+  const cleaned = sanitized.replace(/[^#A-Z0-9]/g, "");
+  const tag = cleaned.startsWith('#') ? cleaned : `#${cleaned}`;
+  return CLAN_TAG_REGEX.test(tag) ? tag : "";
+};
+
+const dedupeTags = (tags) => {
+  const seen = new Set();
+  return tags.filter((tag) => {
+    if (seen.has(tag)) {
+      return false;
+    }
+    seen.add(tag);
+    return true;
+  });
+};
+
+const readDonationClanTags = () => {
+  try {
+    if (!fs.existsSync(DONATION_CLANS_FILE)) {
+      return [];
+    }
+    const raw = fs.readFileSync(DONATION_CLANS_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    const normalized = parsed
+      .map((tag) => normalizeDonationTag(tag))
+      .filter(Boolean);
+    return dedupeTags(normalized);
+  } catch (error) {
+    console.error(
+      "[donations] Failed to read DonationClans.json:",
+      error.message || error
+    );
+    return [];
+  }
+};
+
+const writeDonationClanTags = (tags) => {
+  const normalized = dedupeTags(
+    tags.map((tag) => normalizeDonationTag(tag)).filter(Boolean)
+  );
+  fs.writeFileSync(
+    DONATION_CLANS_FILE,
+    JSON.stringify(normalized, null, 4),
+    "utf-8"
+  );
+  return normalized;
+};
+
 const HISTORY_SOURCE_URL = "https://cc.fwafarm.com/cc_n/member.php";
 const CLAN_HISTORY_SOURCE_URL = "https://cc.fwafarm.com/cc_n/clan.php";
 const LOGIN_NOTICE_REGEX = /Please log in to view more details\.?/gi;
@@ -933,11 +999,61 @@ app.get("/clans/:tag/capitalraid", async function (req, res) {
   }
 });
 
+app.get("/admin/donation-clans", (req, res) => {
+  try {
+    const clans = readDonationClanTags();
+    res.json({ clans });
+  } catch (error) {
+    console.error("[donations] Failed to load donation clans:", error);
+    res.status(500).json({ message: "Unable to load donation clans." });
+  }
+});
+
+app.put("/admin/donation-clans", (req, res) => {
+  try {
+    const payload = req.body || {};
+    const incoming = Array.isArray(payload.clans) ? payload.clans : null;
+
+    if (!incoming) {
+      return res
+        .status(400)
+        .json({ message: "Request body must include a clans array." });
+    }
+
+    const normalized = [];
+    const invalid = [];
+
+    incoming.forEach((tag) => {
+      const normalizedTag = normalizeDonationTag(tag);
+      if (normalizedTag) {
+        normalized.push(normalizedTag);
+      } else {
+        const rawValue = tag === undefined || tag === null ? '' : String(tag);
+        if (rawValue.trim() !== '') {
+          invalid.push(rawValue);
+        }
+      }
+    });
+
+    if (invalid.length) {
+      return res.status(400).json({
+        message: "One or more clan tags are invalid.",
+        invalid,
+      });
+    }
+
+    const saved = writeDonationClanTags(normalized);
+    return res.json({ clans: saved });
+  } catch (error) {
+    console.error("[donations] Failed to save donation clans:", error);
+    return res
+      .status(500)
+      .json({ message: "Unable to save donation clans." });
+  }
+});
+
 app.get("/donationsclans", async function (req, res) {
-  var data = req.body;
-  const clans = JSON.parse(
-    fs.readFileSync("./public/files/DonationClans.json")
-  );
+  const clans = readDonationClanTags();
   var clansranking = [];
   const seasonDayCount = getCurrentSeasonDayCount();
   for (let j = 0; j < clans.length; j++) {

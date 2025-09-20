@@ -1,16 +1,16 @@
 import { useMemo, useState } from "react";
 
 const defaultHero = {
-  headline: "???? ?????? ?? ReqClans",
-  subtitle: "???? ???? ?? ????? ?????? ???????? ?????? ???????.",
-  ctaLabel: "??????? ??????",
+  headline: "Welcome to ReqClans",
+  subtitle: "Discover elite clans, track stats, and grow your community.",
+  ctaLabel: "Explore Clans",
   ctaLink: "/",
 };
 
 const defaultQuickLinks = [
-  { id: 1, title: "??? ?? ????", href: "#search" },
-  { id: 2, title: "??????? ????????", href: "#donations" },
-  { id: 3, title: "????? ???????", href: "#follow" },
+  { id: 1, title: "Find a Clan", href: "#search" },
+  { id: 2, title: "Donation Tracker", href: "#donations" },
+  { id: 3, title: "Follow Updates", href: "#follow" },
 ];
 
 const defaultSocials = [
@@ -27,8 +27,8 @@ const AdminContent = () => {
 
   const disabledActions = useMemo(
     () => ({
-      title: "???? ?????? ??????",
-      hint: "?? ???? ??? ?????? ?? ??? API ??????? ????????? ??????? ??????? ???.",
+      title: "Read-only mode",
+      hint: "Connect the upcoming content API before enabling live publishing.",
     }),
     []
   );
@@ -52,23 +52,23 @@ const AdminContent = () => {
   const handleSaveDraft = () => {
     setStatusMessage({
       type: "draft",
-      text: "?? ??? ????????? ?????? ?????. ???? ??? ???? ?????? ???????? ?????? ?????? ??????.",
+      text: "Draft saved locally. Sync to the live site once the content service is connected.",
     });
   };
 
   const handlePublish = () => {
     setStatusMessage({
       type: "publish",
-      text: "?? ????? ????????? ?????? ??????. ???? ??? ???? ?? ??? API ?? CI/CD ???????? ??? ??????.",
+      text: "Publishing queued. Wire up the API via CI/CD to push changes to production.",
     });
   };
 
   return (
     <div className="space-y-8">
       <header className="flex flex-col gap-3 rounded-3xl border border-sky-500/20 bg-sky-500/10 p-5 text-slate-100 shadow-lg shadow-sky-900/20">
-        <h2 className="text-lg font-semibold text-white">????? ??????? ???????</h2>
+        <h2 className="text-lg font-semibold text-white">Content Operations Hub</h2>
         <p className="text-sm text-slate-300">
-          ?????? ??? ?????? ?????? ????? ?????? ???????? ??? ????? ???????? ????????. ??????? ????? ????? ?????? ??????? ???.
+          Curate the landing experience, promote community updates, and manage the hero banner without leaving this workspace. Future automation hooks will appear here.
         </p>
         <div className="flex flex-wrap gap-3 text-xs text-slate-300">
           <span className="rounded-full border border-white/20 px-3 py-1 uppercase tracking-[0.35em]">
@@ -98,9 +98,9 @@ const AdminContent = () => {
       <section className="rounded-3xl border border-white/5 bg-slate-950/70 p-6 shadow-lg">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold text-white">????? ????? (Hero)</h3>
+            <h3 className="text-lg font-semibold text-white">Hero Banner (Hero)</h3>
             <p className="text-xs text-slate-400">
-              ???? ??????? ?????? ??????? ??????? ?????? ???????? ?????? ???????.
+              Update the hero copy and primary call to action shown on the public homepage.
             </p>
           </div>
           <span className="rounded-full bg-slate-900/70 px-3 py-1 text-[11px] uppercase tracking-[0.35em] text-slate-400">
@@ -110,7 +110,7 @@ const AdminContent = () => {
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="flex flex-col gap-2 text-xs font-semibold text-slate-300">
-            ??????? ???????
+            Headline
             <input
               value={hero.headline}
               onChange={(event) => handleHeroChange("headline", event.target.value)}
@@ -118,7 +118,7 @@ const AdminContent = () => {
             />
           </label>
           <label className="flex flex-col gap-2 text-xs font-semibold text-slate-300">
-            ????? ????????
+            Subheadline
             <input
               value={hero.subtitle}
               onChange={(event) => handleHeroChange("subtitle", event.target.value)}
@@ -126,7 +126,7 @@ const AdminContent = () => {
             />
           </label>
           <label className="flex flex-col gap-2 text-xs font-semibold text-slate-300">
-            ????? ?? ??????
+            Call to Action Label
             <input
               value={hero.ctaLabel}
               onChange={(event) => handleHeroChange("ctaLabel", event.target.value)}
@@ -134,7 +134,7 @@ const AdminContent = () => {
             />
           </label>
           <label className="flex flex-col gap-2 text-xs font-semibold text-slate-300">
-            ???? ?? ??????
+            Destination URL
             <input
               value={hero.ctaLink}
               onChange={(event) => handleHeroChange("ctaLink", event.target.value)}
@@ -147,9 +147,9 @@ const AdminContent = () => {
       <section className="rounded-3xl border border-white/5 bg-slate-950/70 p-6 shadow-lg">
         <header className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-white">??????? ???????</h3>
+            <h3 className="text-lg font-semibold text-white">Featured Quick Links</h3>
             <p className="text-xs text-slate-400">
-              ????? ???? ???????? ??????? ??? ????? ?????? ????????.
+              Highlight the most helpful resources visitors need in just a click.
             </p>
           </div>
           <span className="rounded-full bg-slate-900/70 px-3 py-1 text-[11px] uppercase tracking-[0.35em] text-slate-400">
@@ -164,7 +164,7 @@ const AdminContent = () => {
               className="grid gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4 sm:grid-cols-[1fr_1fr]"
             >
               <label className="flex flex-col gap-2 text-xs font-semibold text-slate-300">
-                ???????
+                Title
                 <input
                   value={item.title}
                   onChange={(event) =>
@@ -174,7 +174,7 @@ const AdminContent = () => {
                 />
               </label>
               <label className="flex flex-col gap-2 text-xs font-semibold text-slate-300">
-                ??????
+                URL
                 <input
                   value={item.href}
                   onChange={(event) =>
@@ -191,9 +191,9 @@ const AdminContent = () => {
       <section className="rounded-3xl border border-white/5 bg-slate-950/70 p-6 shadow-lg">
         <header className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-white">????? ???????</h3>
+            <h3 className="text-lg font-semibold text-white">Social Profiles</h3>
             <p className="text-xs text-slate-400">
-              ???? ????? ??????? ?????? ?? ????? ?????? ??? ??????? ???????.
+              Keep your audience connected across platforms with current social links.
             </p>
           </div>
           <span className="rounded-full bg-slate-900/70 px-3 py-1 text-[11px] uppercase tracking-[0.35em] text-slate-400">
@@ -225,7 +225,7 @@ const AdminContent = () => {
       <footer className="flex flex-col gap-3 rounded-3xl border border-white/5 bg-slate-950/70 p-5 shadow-lg text-sm text-slate-300 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs text-slate-400">
-            ??? ??? ?????? ???????? ????????? ???? ?? ????? ?????? endpoint ???? ????? ?? ????? ????? ????? ???? ???????.
+            Content updates currently rely on the upcoming endpoint. Continue manual updates until the pipeline is configured.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -234,14 +234,14 @@ const AdminContent = () => {
             onClick={handleSaveDraft}
             className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:bg-white/10"
           >
-            ??? ??????
+            Save Draft
           </button>
           <button
             type="button"
             onClick={handlePublish}
             className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-sky-400"
           >
-            ??? ?????????
+            Publish Update
           </button>
         </div>
       </footer>
@@ -250,3 +250,4 @@ const AdminContent = () => {
 };
 
 export default AdminContent;
+
