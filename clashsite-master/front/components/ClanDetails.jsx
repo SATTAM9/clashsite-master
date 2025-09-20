@@ -891,7 +891,7 @@ const quickStats = useMemo(
                     );
                   })}
                 </div>
-              ) : null}`r`n              {warNarrative ? (
+              ) : null}            {warNarrative ? (
                 <div className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60">
                   <div className="space-y-3">
                     <div className="space-y-1">
@@ -1255,4 +1255,5 @@ const quickStats = useMemo(
 
 export default ClanDetails;
 
-
+
+
