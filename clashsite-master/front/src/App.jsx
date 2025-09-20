@@ -21,6 +21,10 @@ const ResetPassword = lazy(() => import("../components/LoginMethod/ResetPassword
 const PlayerProfile = lazy(() => import("../components/LoginMethod/PlayerProfile"));
 const XpCalculator = lazy(() => import("../components/XpCalculator"));
 
+const AdminLayout = lazy(() => import("../components/admin/AdminLayout"));
+const AdminDashboard = lazy(() => import("../components/admin/pages/AdminDashboard"));
+const AdminContent = lazy(() => import("../components/admin/pages/AdminContent"));
+const RequireAdmin = lazy(() => import("../components/admin/RequireAdmin"));
 const GOOGLE_CLIENT_ID =
   "171615105804-bbjsnv1sqh0i0q30jprdndjgi6c5oiu5.apps.googleusercontent.com";
 
@@ -62,6 +66,18 @@ function App() {
                   <Route path="/players/player" element={<PlayerByTag />} />
                   <Route path="/players/plsyersclan" element={<PlayersInClan />} />
                   <Route path="/xp-calculator" element={<XpCalculator />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      <RequireAdmin>
+                        <AdminLayout />
+                      </RequireAdmin>
+                    }
+                  >
+                    <Route index element={<AdminDashboard />} />
+                    <Route path="content" element={<AdminContent />} />
+                    <Route path="*" element={<Navigate to="/admin" replace />} />
+                  </Route>
                 </Routes>
               </main>
 
@@ -75,3 +91,4 @@ function App() {
 }
 
 export default App;
+

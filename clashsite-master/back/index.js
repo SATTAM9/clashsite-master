@@ -1057,10 +1057,19 @@ app.post("/players/:playerTag/verifytoken", async (req, res) => {
 
 
 // Connect to MongoDB
+mongoose.set("strictQuery", false);
+
+const mongoUri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/reqclans";
+const mongoOptions = {
+  serverSelectionTimeoutMS: Number(process.env.MONGO_TIMEOUT_MS || 10000),
+};
+
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Connected to MongoDB Atlas"))
-  .catch((err) => console.error("❌ MongoDB connection error:", err.message));
+  .connect(mongoUri, mongoOptions)
+  .then(() => console.log("? Connected to MongoDB"))
+  .catch((err) => {
+    console.error("? MongoDB connection error:", err.message);
+  });
 
 app.get("/", (req, res) => {
   res.send("Server is running 🚀");
@@ -1069,6 +1078,7 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Node app is running on http://localhost:${PORT}`);
 });
+
 
 
 

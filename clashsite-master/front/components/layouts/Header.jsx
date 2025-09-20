@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { IoPersonSharp } from "react-icons/io5";
 import HoverTapSections from "../ui/HeaderTaps";
 import { useLanguage } from "../../src/i18n/LanguageContext";
+import { getStoredUser, isAdminUser } from "../../lib/adminAuth";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { t } = useLanguage();
+  const isAdmin = useMemo(() => isAdminUser(getStoredUser()), []);
 
   const closeMenu = () => setIsOpen(false);
 
@@ -31,6 +33,14 @@ const Header = () => {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
+          {isAdmin ? (
+            <a
+              href="/admin"
+              className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:bg-white/10"
+            >
+              Admin
+            </a>
+          ) : null}
           <a
             href="/login"
             className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-sky-400/70 bg-sky-400/20 text-sky-100 transition hover:-translate-y-0.5 hover:border-sky-200/80 hover:bg-sky-300/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
@@ -74,6 +84,11 @@ const Header = () => {
               <a href="/players/plsyersclan" className="rounded-lg px-3 py-2 transition hover:bg-white/5" onClick={closeMenu}>
                 {t("nav.players.searchByClan")}
               </a>
+              {isAdmin ? (
+                <a href="/admin" className="rounded-lg px-3 py-2 transition hover:bg-white/5" onClick={closeMenu}>
+                  Admin
+                </a>
+              ) : null}
             </div>
 
             <a
@@ -92,3 +107,4 @@ const Header = () => {
 };
 
 export default Header;
+
