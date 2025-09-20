@@ -290,6 +290,18 @@ const Clansdonatin = () => {
               <tbody className="divide-y divide-slate-800 bg-slate-950/60">
                 {currentClans.map((clan, index) => {
                   const rankPosition = indexOfFirstItem + index + 1;
+                  const topRankRowClasses = [
+                    "bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-slate-900/80 border border-amber-400/20 text-white hover:from-amber-500/25 hover:via-amber-500/15 hover:to-slate-900/90",
+                    "bg-gradient-to-r from-sky-500/20 via-sky-500/10 to-slate-900/80 border border-sky-400/20 text-white hover:from-sky-500/25 hover:via-sky-500/15 hover:to-slate-900/90",
+                    "bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-slate-900/80 border border-emerald-400/20 text-white hover:from-emerald-500/25 hover:via-emerald-500/15 hover:to-slate-900/90",
+                    "bg-gradient-to-r from-purple-500/20 via-purple-500/10 to-slate-900/80 border border-purple-400/20 text-white hover:from-purple-500/25 hover:via-purple-500/15 hover:to-slate-900/90",
+                  ];
+                  const zebraRowClass = index % 2 === 0
+                    ? "bg-slate-950/40 text-slate-200 hover:bg-slate-900/70"
+                    : "bg-slate-900/40 text-slate-200 hover:bg-slate-900/70";
+                  const highlightRowClass = rankPosition <= 4
+                    ? topRankRowClasses[rankPosition - 1]
+                    : zebraRowClass;
                   const fallbackSrcMatch = clan.badgeUrl
                     ? null
                     : clan.logoHTML.match(/src="([^"]*)"/i);
@@ -326,7 +338,7 @@ const Clansdonatin = () => {
                   return (
                     <tr
                       key={clan.id || clan.displayTag || rankPosition}
-                      className="transition hover:bg-slate-900/70"
+                      className={`transition ${highlightRowClass}`}
                     >
                       <td className="px-4 py-3 font-semibold text-slate-100">#{rankPosition}</td>
                       <td className="px-4 py-3">

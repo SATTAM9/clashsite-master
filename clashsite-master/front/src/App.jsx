@@ -1,4 +1,4 @@
-﻿import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
 import { Suspense, lazy } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
@@ -32,7 +32,7 @@ function App() {
             <div className="app">
               <Header />
 
-              <Routes>
+              <main className="app-main">\r\n              <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
@@ -51,8 +51,7 @@ function App() {
               <Route path="/players/player" element={<PlayerByTag />} />
               <Route path="/players/plsyersclan" element={<PlayersInClan />} />
               <Route path="/xp-calculator" element={<XpCalculator />} />
-              </Routes>
-              <Footer />
+              </Routes>\r\n            </main>\r\n            <Footer />
             </div>
           </Suspense>
         </Router>
@@ -62,4 +61,6 @@ function App() {
 }
 
 export default App;
+
+
 
