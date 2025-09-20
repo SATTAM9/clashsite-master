@@ -1,46 +1,43 @@
-/* #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+.app {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+  overflow-x: hidden;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.app::before,
+.app::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+.app::before {
+  background: radial-gradient(120% 120% at 75% 0%, rgba(2, 132, 199, 0.45) 0%, rgba(2, 6, 23, 0) 55%),
+    radial-gradient(120% 120% at 10% 100%, rgba(236, 72, 153, 0.35) 0%, rgba(2, 6, 23, 0) 55%);
+  filter: blur(0px);
+}
+
+.app::after {
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.85) 0%, rgba(2, 6, 23, 0.95) 30%, rgba(0, 0, 0, 0.98) 100%);
+  z-index: -1;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2rem, 3vw, 3.5rem);
+  padding: clamp(1.5rem, 4vw, 3.5rem) 0 clamp(2.5rem, 6vw, 5rem);
+}
+
+@media (max-width: 640px) {
+  .app-main {
+    padding-top: 1rem;
+    padding-bottom: 3rem;
   }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-} */
-
-body {
-  background: linear-gradient(to right, #0c1421, #162237, #0c1421);
 }

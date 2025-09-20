@@ -7,6 +7,7 @@ import Player from "./search/Player";
 import MySelectByCountry from "./search/MySelectByCountry";
 import Clan from "./search/Clan";
 import Clansdonatin from "./clansdonatin/Clansdonatin";
+import PageShell, { PageSection, SectionHeader } from "./layouts/PageShell";
 
 const FEATURE_VIDEO_ID = "eyC6IotF7Bc";
 
@@ -172,11 +173,9 @@ const Home = () => {
   );
 
     return (
-    <div
-      dir={direction}
-      className="min-h-screen bg-gradient-to-b from-[#0b1120] via-[#020617] to-[#000000] text-white"
-    >
-      <section className="relative overflow-hidden py-12">
+    <PageShell dir={direction} padded={false} fullWidth variant="plain">
+      <div className="flex flex-col gap-16 pb-20 text-slate-100">
+        <section className="relative overflow-hidden py-12">
         <div
           className="pointer-events-none absolute inset-0 -z-10 blur-3xl"
           aria-hidden="true"
@@ -216,113 +215,122 @@ const Home = () => {
             <Carousel />
           </div>
         </div>
-      </section>
+        </section>
 
-      <section id="search" className="mx-auto max-w-6xl space-y-8 px-4 pb-12">
-        <div className="space-y-2 text-center">
-          <h2 className="text-3xl font-bold text-white">{searchTitle}</h2>
-          <p className="text-sm text-slate-300 sm:text-base">{searchSubtitle}</p>
-        </div>
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-3xl bg-slate-950/70 p-5 ring-1 ring-slate-800/50 shadow-lg">
-            <Player />
-          </div>
-          <div className="rounded-3xl bg-slate-950/70 p-5 ring-1 ring-slate-800/50 shadow-lg">
-            <MySelectByCountry />
-          </div>
-          <div className="rounded-3xl bg-slate-950/70 p-5 ring-1 ring-slate-800/50 shadow-lg">
-            <Clan />
-          </div>
-        </div>
-      </section>
-
-      <section id="donations" className="mx-auto max-w-6xl space-y-6 px-4 pb-12">
-        <div className="space-y-2 text-center md:text-left">
-          <h2 className="text-3xl font-bold text-white">{donationTitle}</h2>
-          <p className="text-sm text-slate-300 sm:text-base">{donationSubtitle}</p>
-        </div>
-        <div className="rounded-3xl bg-slate-950/70 p-4 ring-1 ring-slate-800/50 shadow-xl">
-          <Clansdonatin />
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl space-y-8 px-4 pb-12">
-        <div className="flex flex-col gap-6 rounded-3xl bg-slate-950/70 p-8 shadow-xl ring-1 ring-slate-800/50 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-3">
-            <h2 className="text-3xl font-bold text-white">{communityTitle}</h2>
-            <p className="text-slate-200">{communitySubtitle}</p>
-          </div>
-          <div className="grid gap-3 text-sm text-slate-200 md:grid-cols-2 lg:max-w-xl">
-            <div className="rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/40">
-              - Rising clan of the week highlighted atop the donation board.
+        <PageSection
+          id="search"
+          className="mx-auto max-w-6xl space-y-10"
+        >
+          <SectionHeader
+            align="center"
+            title={searchTitle}
+            description={searchSubtitle}
+          />
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="glass-panel border-white/5 bg-slate-950/80 p-5">
+              <Player />
             </div>
-            <div className="rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/40">
-              - Capital raid MVPs featured in the analytics panel.
+            <div className="glass-panel border-white/5 bg-slate-950/80 p-5">
+              <MySelectByCountry />
             </div>
-            <div className="rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/40">
-              - Seasonal goals to share across Telegram, TikTok, and YouTube.
+            <div className="glass-panel border-white/5 bg-slate-950/80 p-5">
+              <Clan />
             </div>
           </div>
-        </div>
-      </section>
+        </PageSection>
 
-      <section
-        id="follow"
-        className="mx-auto max-w-6xl space-y-8 px-4 pb-16"
-      >
-        <div className="grid gap-8 rounded-3xl bg-slate-950/70 p-8 shadow-xl ring-1 ring-slate-800/50 lg:grid-cols-[minmax(0,1.4fr),minmax(0,1fr)]">
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <h2 className="text-3xl font-bold text-white">{followTitle}</h2>
-              <p className="text-sm text-slate-300 sm:text-base">{followSubtitle}</p>
-              <p className="text-xs uppercase tracking-wide text-slate-500">
+        <PageSection
+          id="donations"
+          className="mx-auto max-w-6xl space-y-8"
+        >
+          <SectionHeader
+            title={donationTitle}
+            description={donationSubtitle}
+            align="start"
+          />
+          <div className="glass-panel border-white/5 bg-slate-950/80 p-4">
+            <Clansdonatin />
+          </div>
+        </PageSection>
+
+        <PageSection className="mx-auto max-w-6xl space-y-8">
+          <SectionHeader
+            title={communityTitle}
+            description={communitySubtitle}
+            align="start"
+          />
+          <div className="grid gap-4 text-sm text-slate-200 md:grid-cols-2 lg:grid-cols-3">
+            <div className="glass-panel border-white/5 bg-slate-950/75 p-5">
+              <p>- Rising clan of the week highlighted atop the donation board.</p>
+            </div>
+            <div className="glass-panel border-white/5 bg-slate-950/75 p-5">
+              <p>- Capital raid MVPs featured in the analytics panel.</p>
+            </div>
+            <div className="glass-panel border-white/5 bg-slate-950/75 p-5">
+              <p>- Seasonal goals to share across Telegram, TikTok, and YouTube.</p>
+            </div>
+          </div>
+        </PageSection>
+
+        <PageSection
+          id="follow"
+          className="mx-auto max-w-6xl space-y-8"
+        >
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr),minmax(0,1fr)]">
+            <div className="space-y-6">
+              <SectionHeader
+                title={followTitle}
+                description={followSubtitle}
+                align="start"
+              />
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
                 Built with schema.org guidance and web.dev lazy-load patterns.
               </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {socialChannels.map((
-                { name, href, description, icon, metric, ringClass, badgeClass, badgeTextClass, actionLabel }
-              ) => {
-                const Icon = icon;
-                return (
-                  <a
-                    key={name}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer me"
-                    className={`group flex flex-col justify-between rounded-3xl bg-slate-900/70 p-6 ring-1 ring-slate-800/50 transition hover:-translate-y-1 ${ringClass}`}
-                    aria-label={`Open Clash Pro on ${name}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/80 text-2xl text-white transition group-hover:scale-105">
-                        <Icon aria-hidden="true" />
-                      </span>
-                      <div>
-                        <p className="text-lg font-semibold text-white">{name}</p>
-                        <p className="text-sm text-slate-400">{metric}</p>
-                      </div>
-                    </div>
-                    <p className="mt-4 text-sm text-slate-400 transition group-hover:text-slate-200">{description}</p>
-                    <span
-                      className={`mt-6 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${badgeClass} ${badgeTextClass}`}
+              <div className="grid gap-4 md:grid-cols-2">
+                {socialChannels.map((
+                  { name, href, description, icon, metric, ringClass, badgeClass, badgeTextClass, actionLabel }
+                ) => {
+                  const Icon = icon;
+                  return (
+                    <a
+                      key={name}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer me"
+                      className={`group flex flex-col justify-between glass-panel border-white/5 bg-slate-900/80 p-6 transition hover:-translate-y-1 ${ringClass}`}
+                      aria-label={`Open Clash Pro on ${name}`}
                     >
-                      {actionLabel}
-                      <span aria-hidden="true">&gt;</span>
-                    </span>
-                  </a>
-                );
-              })}
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/80 text-2xl text-white transition group-hover:scale-105">
+                          <Icon aria-hidden="true" />
+                        </span>
+                        <div>
+                          <p className="text-lg font-semibold text-white">{name}</p>
+                          <p className="text-sm text-slate-400">{metric}</p>
+                        </div>
+                      </div>
+                      <p className="mt-4 text-sm text-slate-400 transition group-hover:text-slate-200">{description}</p>
+                      <span
+                        className={`mt-6 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${badgeClass} ${badgeTextClass}`}
+                      >
+                        {actionLabel}
+                        <span aria-hidden="true">&gt;</span>
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <LazyYouTubeEmbed />
+              <p className="text-xs text-slate-400">
+                The player mounts after interaction, saving requests while keeping the page fast.
+              </p>
             </div>
           </div>
-          <div className="space-y-3">
-            <LazyYouTubeEmbed />
-            <p className="text-xs text-slate-400">
-              The player mounts after interaction, saving requests while keeping the page fast.
-            </p>
-          </div>
-        </div>
-      </section>
-    </div>
+        </PageSection>
+      </div>
+    </PageShell>
   );
 };
 

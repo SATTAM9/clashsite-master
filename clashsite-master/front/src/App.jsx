@@ -20,38 +20,52 @@ const ForgetPassword = lazy(() => import("../components/LoginMethod/ForgetPasswo
 const ResetPassword = lazy(() => import("../components/LoginMethod/ResetPassword"));
 const PlayerProfile = lazy(() => import("../components/LoginMethod/PlayerProfile"));
 const XpCalculator = lazy(() => import("../components/XpCalculator"));
+
 const GOOGLE_CLIENT_ID =
   "171615105804-bbjsnv1sqh0i0q30jprdndjgi6c5oiu5.apps.googleusercontent.com";
+
+const suspenseFallback = (
+  <div className="flex min-h-screen items-center justify-center bg-slate-950/90 text-slate-200">
+    <div className="flex flex-col items-center gap-3">
+      <span className="h-10 w-10 animate-spin rounded-full border-[3px] border-slate-700 border-t-sky-400" />
+      <span className="text-sm font-medium tracking-wide text-slate-400">
+        Loading the ReqClans experience…
+      </span>
+    </div>
+  </div>
+);
 
 function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <LanguageProvider>
         <Router>
-          <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-white">Loading...</div>}>
+          <Suspense fallback={suspenseFallback}>
             <div className="app">
               <Header />
 
-              <main className="app-main">\r\n              <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<SignUp />} />
-              <Route path="/forgetpassword" element={<ForgetPassword />} />
-              <Route path="/resetpassword" element={<ResetPassword />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/player/profile" element={<PlayerProfile />} />
-              {/* <Route path="/discord" element={<Discord />} /> */}
-              <Route path="/clan/:tag" element={<ClanDetails />} />
-              <Route path="/player/:tag" element={<PlayerDetails />} />
-              <Route path="/youraccount" element={<Navigate to="/login" replace />} />
-              <Route path="/clans/clan" element={<ClanByTag />} />
-              <Route path="/clans/donations" element={<Clansdonatin />} />
-              <Route path="/donations" element={<Clansdonatin />} />
+              <main className="app-main">
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<SignUp />} />
+                  <Route path="/forgetpassword" element={<ForgetPassword />} />
+                  <Route path="/resetpassword" element={<ResetPassword />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/player/profile" element={<PlayerProfile />} />
+                  <Route path="/clan/:tag" element={<ClanDetails />} />
+                  <Route path="/player/:tag" element={<PlayerDetails />} />
+                  <Route path="/youraccount" element={<Navigate to="/login" replace />} />
+                  <Route path="/clans/clan" element={<ClanByTag />} />
+                  <Route path="/clans/donations" element={<Clansdonatin />} />
+                  <Route path="/donations" element={<Clansdonatin />} />
+                  <Route path="/players/player" element={<PlayerByTag />} />
+                  <Route path="/players/plsyersclan" element={<PlayersInClan />} />
+                  <Route path="/xp-calculator" element={<XpCalculator />} />
+                </Routes>
+              </main>
 
-              <Route path="/players/player" element={<PlayerByTag />} />
-              <Route path="/players/plsyersclan" element={<PlayersInClan />} />
-              <Route path="/xp-calculator" element={<XpCalculator />} />
-              </Routes>\r\n            </main>\r\n            <Footer />
+              <Footer />
             </div>
           </Suspense>
         </Router>
@@ -61,6 +75,3 @@ function App() {
 }
 
 export default App;
-
-
-

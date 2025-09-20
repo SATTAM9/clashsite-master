@@ -1,6 +1,7 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "../../src/i18n/LanguageContext";
+import PageShell, { PageSection, SectionHeader } from "../layouts/PageShell";
 
 export default function ClanByTag() {
   const { t, direction } = useLanguage();
@@ -47,7 +48,11 @@ export default function ClanByTag() {
             data.error === "invalid_tag"
               ? t("search.clan.errors.missingTag")
               : fallbackMessage;
-          setError(typeof data.error === "string" && data.error.trim() ? normalized : fallbackMessage);
+          setError(
+            typeof data.error === "string" && data.error.trim()
+              ? normalized
+              : fallbackMessage
+          );
         }
       } catch (err) {
         console.error("Error fetching clan:", err);
@@ -63,108 +68,147 @@ export default function ClanByTag() {
     }
   }, [selectedValue, searchTrigger, t]);
 
-  const desktopAlignment = direction === "rtl" ? "md:text-right" : "md:text-left";
-  const description = clan?.description || t("search.clan.messages.noDescription");
+  const desktopAlignment =
+    direction === "rtl" ? "md:text-right" : "md:text-left";
+  const description =
+    clan?.description || t("search.clan.messages.noDescription");
 
   return (
-    <div
-      className="min-h-screen bg-gradient-to-r from-[#384f84] via-[#1e293b] to-[#15203a] p-6 text-white flex flex-col items-center"
+    <PageShell
       dir={direction}
+      padded
+      fullWidth={false}
+      variant="plain"
+      className="pb-20 text-slate-100"
     >
-      <img
-        src="/fic.jpeg"
-          loading="lazy"
-        alt="Clash"
-        className="mx-auto w-50 mb-4 animate-bounce"
-      />
-
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-4xl flex gap-3 items-center bg-gray-900/70 p-4 rounded-xl shadow-md mb-6"
-      >
-        <div className="relative flex-1">
-          <input
-            type="text"
-            className="w-full bg-gray-800/70 text-white rounded-lg pl-10 pr-3 py-3 focus:ring-2 focus:ring-yellow-400 focus:outline-none placeholder-gray-400 text-lg"
-            placeholder={t("search.clan.placeholder")}
-            value={inputValue}
-            onChange={handleChange}
-          />
-          <span className="absolute left-3 top-3 text-gray-400">#</span>
-        </div>
-        <button
-          type="submit"
-          className="px-6 py-3 bg-yellow-400 text-black font-bold rounded-lg shadow hover:bg-yellow-500 transition text-lg"
-        >
-          {t("buttons.search")}
-        </button>
-      </form>
-
-      {loading && (
-        <div className="flex justify-center items-center flex-1 mt-20">
-          <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
-          <span className="sr-only">{t("status.loading")}</span>
-        </div>
-      )}
-
-      {error && !loading && (
-        <div className="flex flex-col items-center justify-center mt-20 text-center text-white px-4">
-          <img
-            src="/assets/coc/icons/super-troop-pics/Icon_HV_Super_Wall_Breaker.png"
-            alt={t("search.clan.messages.errorTitle")}
-            className="h-60 mb-6 object-contain opacity-90"
-          />
-          <h2 className="text-2xl font-bold text-red-400 mb-2">
-            {t("search.clan.messages.errorTitle")}
-          </h2>
-          <p className="text-gray-300 mb-4 max-w-md">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg shadow-lg transition"
-          >
-            {t("search.clan.messages.tryAgain")}
-          </button>
-        </div>
-      )}
-
-      {clan && !loading && (
-        <div className="w-full max-w-5xl bg-gray-900/80 rounded-2xl p-8 flex flex-col md:flex-row items-center gap-8 shadow-lg transition hover:scale-105">
-          <Link to={`/clan/${clan.tag.replace("#", "")}`} className="flex-shrink-0">
+      <div className="flex flex-col gap-10">
+        <PageSection className="space-y-8 text-center">
+          <div className="flex flex-col items-center gap-4">
             <img
-              src={clan.badge?.url}
-              alt={clan.name}
-              className="w-40 h-40 rounded-full border-4 border-yellow-400 shadow-md"
+              src="/fic.jpeg"
+              loading="lazy"
+              alt="ReqClans emblem"
+              className="h-20 w-20 rounded-full border border-white/10 object-cover shadow-lg"
             />
-          </Link>
-          <div className={`flex-1 space-y-4 text-center ${desktopAlignment}`}>
-            <p className="text-3xl font-bold">{clan.name}</p>
-            <p className="text-xl">
-              <span className="font-semibold text-yellow-400">
-                {t("search.clan.labels.tag")}:
-              </span>{" "}
-              {clan.tag}
-            </p>
-            <p className="text-xl">
-              <span className="font-semibold text-yellow-400">
-                {t("search.clan.labels.level")}:
-              </span>{" "}
-              {clan.level}
-            </p>
-            <p className="text-xl">
-              <span className="font-semibold text-yellow-400">
-                {t("search.clan.labels.name")}:
-              </span>{" "}
-              {clan.name}
-            </p>
-            <p className="text-xl">
-              <span className="font-semibold text-yellow-400">
-                {t("search.clan.messages.noDescription")}:
-              </span>{" "}
-              {description}
-            </p>
+            <SectionHeader
+              align="center"
+              eyebrow={t("search.clan.labels.tag")}
+              title="Find any clan by tag"
+              description={t("search.clan.placeholder")}
+            />
           </div>
-        </div>
-      )}
-    </div>
+          <form
+            onSubmit={handleSubmit}
+            className="glass-panel mx-auto flex w-full max-w-4xl flex-col gap-4 border-white/10 bg-slate-950/70 p-6 sm:flex-row sm:items-center"
+          >
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                #
+              </span>
+              <input
+                type="text"
+                className="w-full rounded-xl border border-white/5 bg-slate-900/80 py-3 pl-10 pr-4 text-base text-white shadow-inner focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+                placeholder={t("search.clan.placeholder")}
+                value={inputValue}
+                onChange={handleChange}
+              />
+            </div>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-xl bg-sky-400 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-slate-950 transition hover:bg-sky-300"
+            >
+              {t("buttons.search")}
+            </button>
+          </form>
+          <p className="text-xs text-slate-400">
+            {t("search.clan.labels.tag")} - Example: #P0LYR8
+          </p>
+        </PageSection>
+
+        {loading ? (
+          <PageSection className="glass-panel flex min-h-[220px] flex-col items-center justify-center gap-4 border-white/5 bg-slate-950/70 text-slate-200">
+            <span className="h-16 w-16 animate-spin rounded-full border-4 border-slate-700 border-t-sky-400" />
+            <span className="text-sm uppercase tracking-[0.3em]">
+              {t("status.loading")}
+            </span>
+          </PageSection>
+        ) : null}
+
+        {error && !loading ? (
+          <PageSection className="flex flex-col items-center gap-6 text-center">
+            <img
+              src="/assets/coc/icons/super-troop-pics/Icon_HV_Super_Wall_Breaker.png"
+              alt={t("search.clan.messages.errorTitle")}
+              className="h-52 w-auto object-contain opacity-90"
+            />
+            <div className="space-y-3">
+              <h2 className="text-2xl font-semibold text-rose-300">
+                {t("search.clan.messages.errorTitle")}
+              </h2>
+              <p className="text-sm text-slate-300">{error}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center justify-center rounded-full bg-rose-500 px-6 py-2 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-rose-400"
+            >
+              {t("search.clan.messages.tryAgain")}
+            </button>
+          </PageSection>
+        ) : null}
+
+        {clan && !loading ? (
+          <PageSection className="flex flex-col gap-8 text-center md:flex-row md:items-center md:gap-10 md:text-left">
+            <Link
+              to={`/clan/${clan.tag.replace("#", "")}`}
+              className="mx-auto flex h-36 w-36 items-center justify-center rounded-full border border-white/10 bg-slate-900/70 shadow-lg transition hover:scale-105 md:mx-0"
+            >
+              <img
+                src={clan.badge?.url}
+                alt={clan.name}
+                className="h-28 w-28 rounded-full object-cover"
+              />
+            </Link>
+            <div className={`flex-1 space-y-3 text-center ${desktopAlignment}`}>
+              <h2 className="text-3xl font-semibold text-white">{clan.name}</h2>
+              <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
+                <div className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-white/5">
+                  <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
+                    {t("search.clan.labels.tag")}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-sky-200">
+                    {clan.tag}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-white/5">
+                  <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
+                    {t("search.clan.labels.level")}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-amber-200">
+                    {clan.level}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-white/5 sm:col-span-2">
+                  <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
+                    {t("search.clan.labels.name")}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-white">
+                    {clan.name}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-white/5 sm:col-span-2">
+                  <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
+                    {t("search.clan.messages.noDescription")}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-300">
+                    {description}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </PageSection>
+        ) : null}
+      </div>
+    </PageShell>
   );
 }
