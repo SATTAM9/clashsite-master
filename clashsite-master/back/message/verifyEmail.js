@@ -21,7 +21,7 @@ const verifyEmailTemplate = (userName, verifyLink) => `
       <p style="text-align:center; margin:24px 0;">
         <a class="btn" href="${verifyLink}">Confirm Email</a>
       </p>
-      <p class="muted">If you didn't create a ReqClans account, you can safely ignore this email.</p>
+      <p class="muted">If you didn't create a clashvip account, you can safely ignore this email.</p>
     </div>
   </body>
   </html>

@@ -12,7 +12,10 @@ const sendEmail = async ({ email, subject, html }) => {
   const secure = (process.env.EMAIL_SECURE || "true").toLowerCase() === "true";
 
   if (!host || !user || !pass) {
-    console.warn("Email transport not configured. Skipping email send for", subject);
+    console.warn(
+      "Email transport not configured. Skipping email send for",
+      subject
+    );
     return false;
   }
 
@@ -27,7 +30,7 @@ const sendEmail = async ({ email, subject, html }) => {
   });
 
   await transporter.sendMail({
-    from: `"ReqClans" <${user}>`,
+    from: `"clashvip" <${user}>`,
     to: email,
     subject,
     html,

@@ -1,44 +1,37 @@
 ﻿import { Link } from "react-router-dom";
-import { useLanguage } from "../../src/i18n/LanguageContext";
 
 const HoverTapSections = () => {
-  const { t, direction } = useLanguage();
-
-  const dropdownPositionClass = direction === "rtl" ? "right-0" : "left-0";
-
   return (
     <ul className="flex items-center gap-8 text-gray-300 font-semibold">
-      <li className="relative group cursor-pointer">
-        <span className="hover:text-yellow-400 transition-colors duration-200">
-          {t("nav.clans.label")}
+      {/* Clans dropdown */}
+      <li className="relative group">
+        <span className="cursor-pointer hover:text-yellow-400 transition-colors duration-200">
+          Clans
         </span>
-        <ul
-          className={`absolute top-full ${dropdownPositionClass} mt-2 w-48 bg-gray-800 text-white rounded-lg shadow-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-10`}
-        >
+        <ul className="absolute top-full mt-2 w-48 bg-gray-800 text-white rounded-lg shadow-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-10">
           <li>
             <Link
               to="/clans/clan"
               className="block px-4 py-2 hover:bg-gray-700"
             >
-              {t("nav.clans.searchByTag")}
+              Search By Tag
             </Link>
           </li>
         </ul>
       </li>
 
-      <li className="relative group cursor-pointer">
-        <span className="hover:text-yellow-400 transition-colors duration-200">
-          {t("nav.players.label")}
+      {/* Players dropdown */}
+      <li className="relative group">
+        <span className="cursor-pointer hover:text-yellow-400 transition-colors duration-200">
+          Players
         </span>
-        <ul
-          className={`absolute top-full ${dropdownPositionClass} mt-2 w-56 bg-gray-800 text-white rounded-lg shadow-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-10`}
-        >
+        <ul className="absolute top-full mt-2 w-56 bg-gray-800 text-white rounded-lg shadow-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-10">
           <li>
             <Link
               to="/players/player"
               className="block px-4 py-2 hover:bg-gray-700"
             >
-              {t("nav.players.searchByTag")}
+              Search By Tag
             </Link>
           </li>
           <li>
@@ -46,45 +39,61 @@ const HoverTapSections = () => {
               to="/players/plsyersclan"
               className="block px-4 py-2 hover:bg-gray-700"
             >
-              {t("nav.players.searchByClan")}
+              Search By Clan
             </Link>
           </li>
         </ul>
       </li>
 
-      <li>
+      {/* Donations link */}
+      {/* <li>
         <Link
           to="/donations"
           className="hover:text-yellow-400 transition-colors duration-200"
         >
-          {t("nav.donations")}
+          Donations
         </Link>
-      </li>
+      </li> */}
 
-      <li>
-        <Link
-          to="/xp-calculator"
-          className="hover:text-yellow-400 transition-colors duration-200"
-        >
-          {t("nav.xpCalculator")}
-        </Link>
-      </li>
-
-      <li>
-        <Link
-          to="/#hub"
-          className="hover:text-yellow-400 transition-colors duration-200"
-        >
-          {t("nav.strategyHub")}
-        </Link>
-      </li>
-
+      {/* Home link */}
       <li>
         <Link
           to="/"
           className="hover:text-yellow-400 transition-colors duration-200"
         >
-          {t("nav.home")}
+          Home
+        </Link>
+      </li>
+      <li>
+        <Link
+          to="/xp-calculator"
+          className="hover:text-yellow-400 transition-colors duration-200"
+        >
+          xp-calculator
+        </Link>
+      </li>
+      <li>
+        <Link
+          to="/donations"
+          className="hover:text-yellow-400 transition-colors duration-200"
+        >
+          Donations
+        </Link>
+      </li>
+      <li>
+        <Link
+          to="/rss"
+          className="hover:text-yellow-400 transition-colors duration-200"
+        >
+          Blog
+        </Link>
+      </li>
+      <li>
+        <Link
+          to="/aboute"
+          className="hover:text-yellow-400 transition-colors duration-200"
+        >
+          Aboute
         </Link>
       </li>
     </ul>

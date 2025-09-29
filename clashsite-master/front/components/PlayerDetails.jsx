@@ -4,14 +4,25 @@ import PlayerCollections from "./ui/TapPlayer";
 import PlayerHistorySection from "./player/PlayerHistorySection";
 import SeasonTrophiesChart from "./analytics/SeasonTrophiesChart";
 import TroopProgressChart from "./analytics/TroopProgressChart";
-import { ASSET_BASE_URL, LOCAL_ICON_BASE, buildLabelSources, buildLocalFromRemote, createFallbackHandler, dedupeLabels, getImageSource, pickIconUrl } from "../lib/cocAssets";
+import {
+  ASSET_BASE_URL,
+  LOCAL_ICON_BASE,
+  buildLabelSources,
+  buildLocalFromRemote,
+  createFallbackHandler,
+  dedupeLabels,
+  getImageSource,
+  pickIconUrl,
+} from "../lib/cocAssets";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL
 const UNRANKED_LEAGUE = {
   id: 29000000,
   name: "Unranked",
   iconUrls: {
-    small: "https://api-assets.clashofclans.com/leagues/72/e--YMyIexEQQhE4imLoJcwhYn6Uy8KqlgyY3_kFV6t4.png",
+    small:
+      "https://api-assets.clashofclans.com/leagues/72/e--YMyIexEQQhE4imLoJcwhYn6Uy8KqlgyY3_kFV6t4.png",
     tiny: "https://api-assets.clashofclans.com/leagues/36/e--YMyIexEQQhE4imLoJcwhYn6Uy8KqlgyY3_kFV6t4.png",
   },
 };
@@ -62,15 +73,16 @@ const buildLeagueSources = (league) => {
     data?.icon?.small ||
     data?.icon?.url ||
     (data?.id ? `${ASSET_BASE_URL}/leagues/${data.id}.png` : "");
-  // League icons provided by the API are already the authoritative assets.
-  // Local league sprites are often out-of-date or have hashed filenames, so we skip them here.
+
   return { local: "", remote };
 };
 
 const buildPlayerIngameLink = (tag) => {
   if (!tag) return "";
-  const normalized = tag.startsWith('#') ? tag : `#${tag}`;
-  return `https://link.clashofclans.com/en?action=OpenPlayerProfile&tag=${encodeURIComponent(normalized)}`;
+  const normalized = tag.startsWith("#") ? tag : `#${tag}`;
+  return `https://link.clashofclans.com/en?action=OpenPlayerProfile&tag=${encodeURIComponent(
+    normalized
+  )}`;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -93,17 +105,20 @@ const formatDateTime = (value) => {
   return date.toLocaleString();
 };
 
-const HISTORY_TIMESTAMP_PATTERN = /(\d{4}-\d{2}-\d{2}|\d{2}[./]\d{2}[./]\d{4})(?:\s+|T)?(\d{2}:\d{2}(?::\d{2})?)?/;
+const HISTORY_TIMESTAMP_PATTERN =
+  /(\d{4}-\d{2}-\d{2}|\d{2}[./]\d{2}[./]\d{4})(?:\s+|T)?(\d{2}:\d{2}(?::\d{2})?)?/;
 
 const formatHistoryTimestamp = (value) => {
   if (value === null || value === undefined) {
     return "";
   }
-  const normalized = String(value).replace(/\\s+/g, " " ).trim();
+  const normalized = String(value).replace(/\\s+/g, " ").trim();
   if (!normalized) {
     return "";
   }
-  const looksIsoLike = /\\d{4}-\\d{2}-\\d{2}/.test(normalized) || /\\d{2}[./]\\d{2}[./]\\d{4}/.test(normalized);
+  const looksIsoLike =
+    /\\d{4}-\\d{2}-\\d{2}/.test(normalized) ||
+    /\\d{2}[./]\\d{2}[./]\\d{4}/.test(normalized);
   if (looksIsoLike) {
     return normalized;
   }
@@ -114,7 +129,7 @@ const formatHistoryTimestamp = (value) => {
   const fallback = normalized.match(HISTORY_TIMESTAMP_PATTERN);
   if (fallback) {
     const [, datePart, timePart] = fallback;
-    return [datePart, timePart || ""].filter(Boolean).join(" " );
+    return [datePart, timePart || ""].filter(Boolean).join(" ");
   }
   return normalized;
 };
@@ -123,26 +138,38 @@ const cleanHistoryName = (value) => {
   if (!value) {
     return "";
   }
-  return String(value).replace(/\s+/g, " " ).trim().replace(/^"|"$/g, "");
+  return String(value).replace(/\s+/g, " ").trim().replace(/^"|"$/g, "");
 };
 
 const parseNamesFromHistoryText = (text) => {
   if (!text) {
     return { from: "", to: "" };
   }
-  const matchFromTo = text.match(/changed(?: their)? name from\s+"?([^"']+?)"?\s+to\s+"?([^"']+?)"?/i);
+  const matchFromTo = text.match(
+    /changed(?: their)? name from\s+"?([^"']+?)"?\s+to\s+"?([^"']+?)"?/i
+  );
   if (matchFromTo) {
-    return { from: cleanHistoryName(matchFromTo[1]), to: cleanHistoryName(matchFromTo[2]) };
+    return {
+      from: cleanHistoryName(matchFromTo[1]),
+      to: cleanHistoryName(matchFromTo[2]),
+    };
   }
-  const matchToFrom = text.match(/changed(?: their)? name to\s+"?([^"']+?)"?\s+from\s+"?([^"']+?)"?/i);
+  const matchToFrom = text.match(
+    /changed(?: their)? name to\s+"?([^"']+?)"?\s+from\s+"?([^"']+?)"?/i
+  );
   if (matchToFrom) {
-    return { from: cleanHistoryName(matchToFrom[2]), to: cleanHistoryName(matchToFrom[1]) };
+    return {
+      from: cleanHistoryName(matchToFrom[2]),
+      to: cleanHistoryName(matchToFrom[1]),
+    };
   }
   const matchToOnly = text.match(/changed(?: their)? name to\s+"?([^"']+?)"?/i);
   if (matchToOnly) {
     return { from: "", to: cleanHistoryName(matchToOnly[1]) };
   }
-  const matchFromOnly = text.match(/changed(?: their)? name from\s+"?([^"']+?)"?/i);
+  const matchFromOnly = text.match(
+    /changed(?: their)? name from\s+"?([^"']+?)"?/i
+  );
   if (matchFromOnly) {
     return { from: cleanHistoryName(matchFromOnly[1]), to: "" };
   }
@@ -216,12 +243,20 @@ const buildPlayerNameChangeEntries = (rawNameChanges, trackedActions) => {
         return;
       }
       const timestampSource =
-        change.timestamp || change.time || change.date || change.when || change.raw || change.value || "";
+        change.timestamp ||
+        change.time ||
+        change.date ||
+        change.when ||
+        change.raw ||
+        change.value ||
+        "";
       let fromName = change.from || change.previous || change.old || "";
       let toName = change.to || change.current || change.new || "";
 
       if (!fromName && !toName) {
-        const parsed = parseNamesFromHistoryText(change.action || change.description || change.detail || "");
+        const parsed = parseNamesFromHistoryText(
+          change.action || change.description || change.detail || ""
+        );
         fromName = parsed.from;
         toName = parsed.to;
       }
@@ -285,7 +320,9 @@ const buildPlayerClanHistoryEntries = (trackedActions) => {
 
     const clanInfo = item.clan || {};
     const clanName = cleanHistoryName(clanInfo.name || clanInfo.raw || "");
-    const normalizedTag = String(clanInfo.tag || "").replace(/^#/, "").toUpperCase();
+    const normalizedTag = String(clanInfo.tag || "")
+      .replace(/^#/, "")
+      .toUpperCase();
     const clanTag = normalizedTag ? `#${normalizedTag}` : "";
     const clanAffiliation = cleanHistoryName(clanInfo.affiliation || "");
 
@@ -367,18 +404,25 @@ const PlayerDetails = () => {
     }
 
     const clanName = player?.clan?.name ? ` from clan ${player.clan.name}` : "";
-    const trophies = typeof player?.trophies === "number" ? ` with ${formatNumber(player.trophies)} trophies` : "";
+    const trophies =
+      typeof player?.trophies === "number"
+        ? ` with ${formatNumber(player.trophies)} trophies`
+        : "";
     return `Player ${player.name} (${player.tag})${clanName}${trophies}.`
       .replace(/\s+/g, " ")
       .trim();
   }, [player?.name, player?.tag, player?.clan?.name, player?.trophies]);
 
   const shareUrlX = useMemo(() => {
-    return `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}`;
+    return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      shareMessage
+    )}`;
   }, [shareMessage]);
 
   const shareUrlTelegram = useMemo(() => {
-    const shareUrl = encodeURIComponent(shareLink || "https://link.clashofclans.com/en");
+    const shareUrl = encodeURIComponent(
+      shareLink || "https://link.clashofclans.com/en"
+    );
     const message = encodeURIComponent(shareMessage);
     return `https://t.me/share/url?url=${shareUrl}&text=${message}`;
   }, [shareLink, shareMessage]);
@@ -388,7 +432,8 @@ const PlayerDetails = () => {
   }, [shareMessage, shareLink]);
 
   const handleInstagramShare = useCallback(async () => {
-    const defaultMessage = combinedShareText || "Check out this Clash of Clans profile!";
+    const defaultMessage =
+      combinedShareText || "Check out this Clash of Clans profile!";
     const shareData = {
       title: player?.name ? `Player ${player.name}` : "Clash of Clans profile",
       text: defaultMessage,
@@ -453,76 +498,87 @@ const PlayerDetails = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
 
-useEffect(() => {
-  if (!player?.clan?.tag) {
-    setCapitalOverview(null);
-    return;
-  }
-
-  let isCancelled = false;
-  const controller = new AbortController();
-
-  const fetchCapitalRaid = async () => {
-    setCapitalLoading(true);
-    setCapitalError("");
-
-    const normalizedTag = player.clan.tag.replace(/^#/, "");
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/clans/${encodeURIComponent(normalizedTag)}/capitalraid?limit=1`,
-        { signal: controller.signal }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
-      }
-
-      const payload = await response.json();
-      if (isCancelled) {
-        return;
-      }
-
-      if (payload.success && Array.isArray(payload.seasons) && payload.seasons.length > 0) {
-        const season = payload.seasons[0];
-        const members = Array.isArray(season.members) ? season.members : [];
-        const normalizedPlayerTag = player.tag ? player.tag.replace(/^#/, "").toUpperCase() : "";
-        const memberEntry =
-          members.find(
-            (member) => member.tag && member.tag.replace(/^#/, "").toUpperCase() === normalizedPlayerTag
-          ) || null;
-
-        setCapitalOverview({
-          season,
-          member: memberEntry,
-        });
-      } else {
-        setCapitalOverview(null);
-        setCapitalError(payload.error || "Unable to load capital raid data.");
-      }
-    } catch (err) {
-      if (err.name === "AbortError") {
-        return;
-      }
-      if (!isCancelled) {
-        console.error("player capital raid fetch", err);
-        setCapitalOverview(null);
-        setCapitalError("Unable to load capital raid data.");
-      }
-    } finally {
-      if (!isCancelled) {
-        setCapitalLoading(false);
-      }
+  useEffect(() => {
+    if (!player?.clan?.tag) {
+      setCapitalOverview(null);
+      return;
     }
-  };
 
-  fetchCapitalRaid();
+    let isCancelled = false;
+    const controller = new AbortController();
 
-  return () => {
-    isCancelled = true;
-    controller.abort();
-  };
-}, [player?.clan?.tag, player?.tag]);
+    const fetchCapitalRaid = async () => {
+      setCapitalLoading(true);
+      setCapitalError("");
+
+      const normalizedTag = player.clan.tag.replace(/^#/, "");
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clans/${encodeURIComponent(
+            normalizedTag
+          )}/capitalraid?limit=1`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        if (isCancelled) {
+          return;
+        }
+
+        if (
+          payload.success &&
+          Array.isArray(payload.seasons) &&
+          payload.seasons.length > 0
+        ) {
+          const season = payload.seasons[0];
+          const members = Array.isArray(season.members) ? season.members : [];
+          const normalizedPlayerTag = player.tag
+            ? player.tag.replace(/^#/, "").toUpperCase()
+            : "";
+          const memberEntry =
+            members.find(
+              (member) =>
+                member.tag &&
+                member.tag.replace(/^#/, "").toUpperCase() ===
+                  normalizedPlayerTag
+            ) || null;
+
+          setCapitalOverview({
+            season,
+            member: memberEntry,
+          });
+        } else {
+          setCapitalOverview(null);
+          setCapitalError(payload.error || "Unable to load capital raid data.");
+        }
+      } catch (err) {
+        if (err.name === "AbortError") {
+          return;
+        }
+        if (!isCancelled) {
+          console.error("player capital raid fetch", err);
+          setCapitalOverview(null);
+          setCapitalError("Unable to load capital raid data.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setCapitalLoading(false);
+        }
+      }
+    };
+
+    fetchCapitalRaid();
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [player?.clan?.tag, player?.tag]);
 
   useEffect(() => {
     const clanTag = player?.clan?.tag;
@@ -602,9 +658,7 @@ useEffect(() => {
   const seasonDayCount = useMemo(() => getSeasonDayCount(), []);
   const donationStats = useMemo(() => {
     const donations = Number(player?.donations ?? 0);
-    const received = Number(
-      player?.donationsReceived ?? player?.received ?? 0
-    );
+    const received = Number(player?.donationsReceived ?? player?.received ?? 0);
     const total = donations + received;
     const dailyAverage = Math.round(total / seasonDayCount);
     return {
@@ -660,7 +714,9 @@ useEffect(() => {
         }
         console.error("playerbytag", err);
         setPlayer(null);
-        setError("Unable to fetch the player profile right now. Please try again later.");
+        setError(
+          "Unable to fetch the player profile right now. Please try again later."
+        );
       } finally {
         setLoading(false);
       }
@@ -712,9 +768,14 @@ useEffect(() => {
       setHistoryError("");
 
       try {
-        const response = await fetch(`${API_BASE_URL}/players/${encodeURIComponent(normalizedTag)}/history`, {
-          signal: controller.signal,
-        });
+        const response = await fetch(
+          `${API_BASE_URL}/players/${encodeURIComponent(
+            normalizedTag
+          )}/history`,
+          {
+            signal: controller.signal,
+          }
+        );
 
         if (!response.ok) {
           throw new Error(`status ${response.status}`);
@@ -725,9 +786,15 @@ useEffect(() => {
           return;
         }
 
-        const computedNameChanges = buildPlayerNameChangeEntries(payload.nameChanges, payload.trackedActions);
-        const computedClanHistory = buildPlayerClanHistoryEntries(payload.trackedActions);
-        const detectedNameChange = computedNameChanges.length > 0 || Boolean(payload.hasNameChange);
+        const computedNameChanges = buildPlayerNameChangeEntries(
+          payload.nameChanges,
+          payload.trackedActions
+        );
+        const computedClanHistory = buildPlayerClanHistoryEntries(
+          payload.trackedActions
+        );
+        const detectedNameChange =
+          computedNameChanges.length > 0 || Boolean(payload.hasNameChange);
 
         if (payload.success) {
           setHistoryState({
@@ -785,15 +852,24 @@ useEffect(() => {
     });
   };
 
-  const leagueSources = useMemo(() => buildLeagueSources(player?.league), [player]);
-  const clanBadgeSources = useMemo(() => buildBadgeSources(player?.clan?.badge), [player]);
+  const leagueSources = useMemo(
+    () => buildLeagueSources(player?.league),
+    [player]
+  );
+  const clanBadgeSources = useMemo(
+    () => buildBadgeSources(player?.clan?.badge),
+    [player]
+  );
   const labels = useMemo(() => dedupeLabels(player?.labels), [player?.labels]);
   const legendStats = player?.legendStatistics;
   const leagueName = player?.league?.name || UNRANKED_LEAGUE.name;
 
   const highlightStats = useMemo(() => {
     const stats = [
-      { label: "Legend Trophies", value: formatNumber(player?.legendStatistics?.legendTrophies) },
+      {
+        label: "Legend Trophies",
+        value: formatNumber(player?.legendStatistics?.legendTrophies),
+      },
       { label: "Trophies", value: formatNumber(player?.trophies) },
       { label: "Best Trophies", value: formatNumber(player?.bestTrophies) },
       { label: "War Stars", value: formatNumber(player?.warStars) },
@@ -815,9 +891,18 @@ useEffect(() => {
         label: "Daily Donations",
         value: formatNumber(donationStats.dailyAverage),
       },
-      { label: "Builder Trophies", value: formatNumber(player?.builderBaseTrophies) },
-      { label: "Best Builder Trophies", value: formatNumber(player?.bestBuilderBaseTrophies) },
-      { label: "Clan Capital Contributions", value: formatNumber(player?.clanCapitalContributions) },
+      {
+        label: "Builder Trophies",
+        value: formatNumber(player?.builderBaseTrophies),
+      },
+      {
+        label: "Best Builder Trophies",
+        value: formatNumber(player?.bestBuilderBaseTrophies),
+      },
+      {
+        label: "Clan Capital Contributions",
+        value: formatNumber(player?.clanCapitalContributions),
+      },
     ];
 
     if (capitalOverview?.member) {
@@ -837,7 +922,10 @@ useEffect(() => {
   }, [player, donationStats, capitalOverview]);
 
   const heroStats = useMemo(() => highlightStats.slice(0, 6), [highlightStats]);
-  const additionalStats = useMemo(() => highlightStats.slice(6), [highlightStats]);
+  const additionalStats = useMemo(
+    () => highlightStats.slice(6),
+    [highlightStats]
+  );
   const latestCapitalSeason = capitalOverview?.season ?? null;
 
   const capitalSummaryStats = useMemo(() => {
@@ -849,17 +937,30 @@ useEffect(() => {
         ? latestCapitalSeason.raidsCompleted
         : metrics.calculatedRaidsCompleted;
     const offensiveMedals =
-      typeof latestCapitalSeason.offensiveReward === "number" && latestCapitalSeason.offensiveReward > 0
+      typeof latestCapitalSeason.offensiveReward === "number" &&
+      latestCapitalSeason.offensiveReward > 0
         ? latestCapitalSeason.offensiveReward
         : metrics.calculatedOffensiveRaidMedals;
 
     return [
       { label: "Raids Completed", value: formatNumber(raidsValue) },
-      { label: "Total Attacks", value: formatNumber(latestCapitalSeason.totalAttacks) },
-      { label: "Enemy Districts Destroyed", value: formatNumber(latestCapitalSeason.enemyDistrictsDestroyed) },
-      { label: "Capital Loot Earned", value: formatNumber(latestCapitalSeason.capitalTotalLoot) },
+      {
+        label: "Total Attacks",
+        value: formatNumber(latestCapitalSeason.totalAttacks),
+      },
+      {
+        label: "Enemy Districts Destroyed",
+        value: formatNumber(latestCapitalSeason.enemyDistrictsDestroyed),
+      },
+      {
+        label: "Capital Loot Earned",
+        value: formatNumber(latestCapitalSeason.capitalTotalLoot),
+      },
       { label: "Offensive Raid Medals", value: formatNumber(offensiveMedals) },
-      { label: "Defensive Raid Medals", value: formatNumber(latestCapitalSeason.defensiveReward) },
+      {
+        label: "Defensive Raid Medals",
+        value: formatNumber(latestCapitalSeason.defensiveReward),
+      },
     ];
   }, [latestCapitalSeason]);
 
@@ -884,7 +985,8 @@ useEffect(() => {
         ) {
           const date = new Date(Date.UTC(year, month, 1));
           label =
-            label || date.toLocaleString(undefined, { month: "short", year: "numeric" });
+            label ||
+            date.toLocaleString(undefined, { month: "short", year: "numeric" });
           sortKey = date.getTime();
         }
       }
@@ -892,7 +994,8 @@ useEffect(() => {
       if (sortKey === null) {
         fallbackCounter += 1;
         sortKey = 10_000_000 + fallbackCounter;
-        label = label || (typeof id === "string" ? id : `Season ${fallbackCounter}`);
+        label =
+          label || (typeof id === "string" ? id : `Season ${fallbackCounter}`);
       }
 
       return {
@@ -917,14 +1020,18 @@ useEffect(() => {
       if (!season || typeof season.trophies !== "number") return;
       const bucket = getBucket(season.id);
       bucket.legend =
-        bucket.legend === null ? season.trophies : Math.max(bucket.legend, season.trophies);
+        bucket.legend === null
+          ? season.trophies
+          : Math.max(bucket.legend, season.trophies);
     };
 
     const addBuilder = (season) => {
       if (!season || typeof season.trophies !== "number") return;
       const bucket = getBucket(season.id);
       bucket.builder =
-        bucket.builder === null ? season.trophies : Math.max(bucket.builder, season.trophies);
+        bucket.builder === null
+          ? season.trophies
+          : Math.max(bucket.builder, season.trophies);
     };
 
     addLegend(legendStats.currentSeason);
@@ -937,7 +1044,8 @@ useEffect(() => {
 
     if (
       typeof legendStats.legendTrophies === "number" &&
-      (!legendStats.currentSeason || typeof legendStats.currentSeason.trophies !== "number")
+      (!legendStats.currentSeason ||
+        typeof legendStats.currentSeason.trophies !== "number")
     ) {
       const bucket = getBucket("current", "Current");
       bucket.legend = legendStats.legendTrophies;
@@ -954,18 +1062,22 @@ useEffect(() => {
 
   const troopProgressData = useMemo(() => {
     const troops = Array.isArray(player?.troops)
-      ? player.troops.filter((troop) =>
-          troop.village === "home" &&
-          typeof troop.level === "number" &&
-          typeof troop.maxLevel === "number" &&
-          troop.maxLevel > 0,
+      ? player.troops.filter(
+          (troop) =>
+            troop.village === "home" &&
+            typeof troop.level === "number" &&
+            typeof troop.maxLevel === "number" &&
+            troop.maxLevel > 0
         )
       : [];
 
     const normalized = troops
       .map((troop) => ({
         name: troop.name,
-        percent: Math.min(100, Math.round((troop.level / troop.maxLevel) * 100)),
+        percent: Math.min(
+          100,
+          Math.round((troop.level / troop.maxLevel) * 100)
+        ),
       }))
       .filter((item) => Number.isFinite(item.percent));
 
@@ -1010,32 +1122,43 @@ useEffect(() => {
       return null;
     }
 
-    const timeframe = `${formatDateTime(latestCapitalSeason.startTime)} to ${formatDateTime(latestCapitalSeason.endTime)}`;
+    const timeframe = `${formatDateTime(
+      latestCapitalSeason.startTime
+    )} to ${formatDateTime(latestCapitalSeason.endTime)}`;
     const memberStats = capitalOverview?.member;
 
     return (
       <div className="rounded-2xl bg-gradient-to-br from-emerald-900/50 via-slate-900/80 to-slate-900/80 p-6 ring-1 ring-emerald-500/30">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-lg font-semibold">Capital Raid</h3>
-          {capitalLoading ? <span className="text-xs text-slate-200">Updating...</span> : null}
+          {capitalLoading ? (
+            <span className="text-xs text-slate-200">Updating...</span>
+          ) : null}
         </div>
         <p className="mt-1 text-xs text-slate-300">{timeframe}</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {capitalSummaryStats.map((stat) => (
             <div key={stat.label} className="rounded-xl bg-slate-950/40 p-3">
-              <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
-              <p className="mt-1 text-lg font-semibold text-white">{stat.value}</p>
+              <p className="text-xs uppercase tracking-wider text-slate-400">
+                {stat.label}
+              </p>
+              <p className="mt-1 text-lg font-semibold text-white">
+                {stat.value}
+              </p>
             </div>
           ))}
         </div>
         {memberStats ? (
           <div className="mt-4 rounded-xl bg-slate-950/40 p-4 text-sm text-slate-200">
-            <p className="mb-3 text-xs uppercase tracking-wider text-slate-400">Your contribution</p>
+            <p className="mb-3 text-xs uppercase tracking-wider text-slate-400">
+              Your contribution
+            </p>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="flex justify-between">
                 <span>Attacks used</span>
                 <span>
-                  {formatNumber(memberStats.attacks)} / {formatNumber(memberStats.attackLimit)}
+                  {formatNumber(memberStats.attacks)} /{" "}
+                  {formatNumber(memberStats.attackLimit)}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1049,7 +1172,9 @@ useEffect(() => {
             </div>
           </div>
         ) : (
-          <p className="mt-4 text-xs text-slate-300">No participation recorded for the latest raid.</p>
+          <p className="mt-4 text-xs text-slate-300">
+            No participation recorded for the latest raid.
+          </p>
         )}
       </div>
     );
@@ -1062,11 +1187,14 @@ useEffect(() => {
     }
   }, [activeSection, player]);
 
-  useEffect(() => () => {
-    if (copyTimeoutRef.current) {
-      clearTimeout(copyTimeoutRef.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    },
+    []
+  );
 
   if (loading) {
     return (
@@ -1135,7 +1263,9 @@ useEffect(() => {
         {legendStats?.previousBuilderBaseSeason ? (
           <div className="flex justify-between">
             <dt>Previous BB season trophies</dt>
-            <dd>{formatNumber(legendStats.previousBuilderBaseSeason.trophies)}</dd>
+            <dd>
+              {formatNumber(legendStats.previousBuilderBaseSeason.trophies)}
+            </dd>
           </div>
         ) : null}
         {legendStats?.previousBuilderBaseSeason?.rank ? (
@@ -1148,7 +1278,8 @@ useEffect(() => {
     </div>
   );
 
-  const showCharts = trophyTrendPoints.length > 0 || troopProgressData.length > 0;
+  const showCharts =
+    trophyTrendPoints.length > 0 || troopProgressData.length > 0;
   const showLegendCard = Boolean(legendStats);
   const showBuilderCard = Boolean(builderCard);
   const showCapitalCard = Boolean(capitalCard);
@@ -1157,8 +1288,14 @@ useEffect(() => {
     <div className="min-h-screen bg-gradient-to-r from-[#384f84] via-[#1e293b] to-[#0f172a] py-12">
       <div className="mx-auto max-w-6xl px-4 space-y-10 text-white">
         <section className="relative overflow-hidden rounded-3xl bg-slate-950/75 p-8 shadow-2xl ring-1 ring-slate-700/40">
-          <div className="absolute -top-28 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-yellow-500/10 blur-3xl" aria-hidden="true" />
-          <div className="absolute -bottom-32 right-10 h-56 w-56 rounded-full bg-cyan-500/10 blur-3xl" aria-hidden="true" />
+          <div
+            className="absolute -top-28 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-yellow-500/10 blur-3xl"
+            aria-hidden="true"
+          />
+          <div
+            className="absolute -bottom-32 right-10 h-56 w-56 rounded-full bg-cyan-500/10 blur-3xl"
+            aria-hidden="true"
+          />
           <div className="relative z-10 flex flex-col gap-10 xl:flex-row xl:items-start">
             <div className="flex-1 space-y-8">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -1173,17 +1310,27 @@ useEffect(() => {
                           onError={createFallbackHandler(leagueSources)}
                         />
                       ) : (
-                        <span className="text-sm text-slate-400">{leagueName}</span>
+                        <span className="text-sm text-slate-400">
+                          {leagueName}
+                        </span>
                       )}
                     </div>
                   </div>
                   <div className="space-y-4">
                     <div className="space-y-2 text-center sm:text-left">
-                      <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{player?.name || "Unknown Player"}</h1>
+                      <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+                        {player?.name || "Unknown Player"}
+                      </h1>
                       <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono text-slate-300 sm:justify-start">
-                        <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{player?.tag}</span>
-                        <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">Town Hall {formatNumber(player.townHallLevel)}</span>
-                        <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{leagueName}</span>
+                        <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">
+                          {player?.tag}
+                        </span>
+                        <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">
+                          Town Hall {formatNumber(player.townHallLevel)}
+                        </span>
+                        <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">
+                          {leagueName}
+                        </span>
                       </div>
                     </div>
                     {labels.length ? (
@@ -1233,16 +1380,24 @@ useEffect(() => {
                     ) : null}
                   </div>
                   {copyFeedback ? (
-                    <span className="text-xs text-emerald-300" aria-live="polite">{copyFeedback}</span>
+                    <span
+                      className="text-xs text-emerald-300"
+                      aria-live="polite"
+                    >
+                      {copyFeedback}
+                    </span>
                   ) : null}
                 </div>
               </div>
               <div className="rounded-2xl bg-slate-900/70 p-4 text-sm text-slate-200 ring-1 ring-slate-800/60">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-base font-semibold text-white">Share this player</p>
+                    <p className="text-base font-semibold text-white">
+                      Share this player
+                    </p>
                     <p className="mt-1 text-sm text-slate-300">
-                      Spread {player?.name ? `${player.name}` : "this player"} profile with your crew.
+                      Spread {player?.name ? `${player.name}` : "this player"}{" "}
+                      profile with your crew.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3 sm:justify-end">
@@ -1279,7 +1434,9 @@ useEffect(() => {
                   </div>
                 </div>
                 {shareFeedback ? (
-                  <p className="mt-2 text-xs text-emerald-300 sm:text-right">{shareFeedback}</p>
+                  <p className="mt-2 text-xs text-emerald-300 sm:text-right">
+                    {shareFeedback}
+                  </p>
                 ) : null}
               </div>
               {heroStats.length ? (
@@ -1289,8 +1446,12 @@ useEffect(() => {
                       key={stat.label}
                       className="flex min-h-[110px] flex-col justify-between rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/50 transition hover:-translate-y-1 hover:ring-amber-400/60"
                     >
-                      <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
-                      <p className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{stat.value}</p>
+                      <p className="text-xs uppercase tracking-wider text-slate-400">
+                        {stat.label}
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
+                        {stat.value}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -1299,7 +1460,9 @@ useEffect(() => {
             <aside className="w-full space-y-4 xl:max-w-sm">
               {player?.clan ? (
                 <div className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60">
-                  <p className="text-xs uppercase tracking-wider text-slate-400">Clan</p>
+                  <p className="text-xs uppercase tracking-wider text-slate-400">
+                    Clan
+                  </p>
                   <div className="mt-3 flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:gap-4 sm:text-left">
                     {getImageSource(clanBadgeSources) ? (
                       <img
@@ -1310,15 +1473,25 @@ useEffect(() => {
                       />
                     ) : null}
                     <div>
-                      <p className="text-lg font-semibold text-white">{player.clan.name}</p>
-                      <p className="text-xs font-mono text-slate-400">{player.clan.tag}</p>
-                      <p className="text-xs text-slate-300">Role: {player.role || "Member"}</p>
+                      <p className="text-lg font-semibold text-white">
+                        {player.clan.name}
+                      </p>
+                      <p className="text-xs font-mono text-slate-400">
+                        {player.clan.tag}
+                      </p>
+                      <p className="text-xs text-slate-300">
+                        Role: {player.role || "Member"}
+                      </p>
                     </div>
                   </div>
                   {clanLabelsLoading ? (
-                    <p className="mt-3 text-xs text-slate-400">Loading clan labels...</p>
+                    <p className="mt-3 text-xs text-slate-400">
+                      Loading clan labels...
+                    </p>
                   ) : clanLabelsError ? (
-                    <p className="mt-3 text-xs text-slate-400">{clanLabelsError}</p>
+                    <p className="mt-3 text-xs text-slate-400">
+                      {clanLabelsError}
+                    </p>
                   ) : clanLabels.length ? (
                     <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
                       {clanLabels.map((label) => {
@@ -1351,7 +1524,9 @@ useEffect(() => {
               )}
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
                 <div className="rounded-2xl bg-slate-900/70 p-5 text-center ring-1 ring-slate-800/60">
-                  <p className="text-xs uppercase tracking-wider text-slate-400">Town Hall</p>
+                  <p className="text-xs uppercase tracking-wider text-slate-400">
+                    Town Hall
+                  </p>
                   {player.townHallLevel ? (
                     <div className="mb-3 mt-2 flex justify-center">
                       <img
@@ -1362,14 +1537,20 @@ useEffect(() => {
                       />
                     </div>
                   ) : null}
-                  <p className="text-3xl font-bold text-white">{formatNumber(player.townHallLevel)}</p>
+                  <p className="text-3xl font-bold text-white">
+                    {formatNumber(player.townHallLevel)}
+                  </p>
                   {player.townHallWeaponLevel ? (
-                    <p className="text-xs text-slate-300">Weapon level {player.townHallWeaponLevel}</p>
+                    <p className="text-xs text-slate-300">
+                      Weapon level {player.townHallWeaponLevel}
+                    </p>
                   ) : null}
                 </div>
                 {player.builderHallLevel ? (
                   <div className="rounded-2xl bg-slate-900/70 p-5 text-center ring-1 ring-slate-800/60">
-                    <p className="text-xs uppercase tracking-wider text-slate-400">Builder Hall</p>
+                    <p className="text-xs uppercase tracking-wider text-slate-400">
+                      Builder Hall
+                    </p>
                     <div className="mb-3 mt-2 flex justify-center">
                       <img
                         src={getBuilderHallImage(player.builderHallLevel)}
@@ -1378,9 +1559,13 @@ useEffect(() => {
                         onError={hideImgOnError}
                       />
                     </div>
-                    <p className="text-2xl font-bold text-white">{formatNumber(player.builderHallLevel)}</p>
+                    <p className="text-2xl font-bold text-white">
+                      {formatNumber(player.builderHallLevel)}
+                    </p>
                     {player.builderBaseLeague?.name ? (
-                      <p className="text-xs text-slate-300">{player.builderBaseLeague.name}</p>
+                      <p className="text-xs text-slate-300">
+                        {player.builderBaseLeague.name}
+                      </p>
                     ) : null}
                   </div>
                 ) : null}
@@ -1412,31 +1597,46 @@ useEffect(() => {
           <section className="space-y-10 rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
             {additionalStats.length ? (
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold tracking-tight text-slate-100">Additional player stats</h3>
+                <h3 className="text-lg font-semibold tracking-tight text-slate-100">
+                  Additional player stats
+                </h3>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {additionalStats.map((stat) => (
                     <div
                       key={stat.label}
                       className="flex min-h-[120px] flex-col justify-between rounded-2xl bg-slate-900/60 p-4 ring-1 ring-slate-800/40"
                     >
-                      <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
-                      <p className="mt-2 text-2xl font-semibold text-white">{stat.value}</p>
+                      <p className="text-xs uppercase tracking-wider text-slate-400">
+                        {stat.label}
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-white">
+                        {stat.value}
+                      </p>
                     </div>
                   ))}
                 </div>
               </div>
             ) : null}
 
-            {(showCharts || showLegendCard || showBuilderCard || showCapitalCard) ? (
+            {showCharts ||
+            showLegendCard ||
+            showBuilderCard ||
+            showCapitalCard ? (
               <div className="grid gap-6 xl:grid-cols-[1.6fr,1fr]">
                 <div className="space-y-6">
                   {showCharts ? (
                     <div className="grid gap-6 lg:grid-cols-2">
                       {trophyTrendPoints.length ? (
-                        <SeasonTrophiesChart points={trophyTrendPoints} className="flex h-full flex-col" />
+                        <SeasonTrophiesChart
+                          points={trophyTrendPoints}
+                          className="flex h-full flex-col"
+                        />
                       ) : null}
                       {troopProgressData.length ? (
-                        <TroopProgressChart data={troopProgressData} className="flex h-full flex-col" />
+                        <TroopProgressChart
+                          data={troopProgressData}
+                          className="flex h-full flex-col"
+                        />
                       ) : null}
                     </div>
                   ) : null}
@@ -1451,23 +1651,37 @@ useEffect(() => {
                         </div>
                         <div className="flex justify-between">
                           <dt>Current season trophies</dt>
-                          <dd>{formatNumber(legendStats.currentSeason?.trophies)}</dd>
+                          <dd>
+                            {formatNumber(legendStats.currentSeason?.trophies)}
+                          </dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>Current season rank</dt>
-                          <dd>{legendStats.currentSeason?.rank ? `#${legendStats.currentSeason.rank}` : "--"}</dd>
+                          <dd>
+                            {legendStats.currentSeason?.rank
+                              ? `#${legendStats.currentSeason.rank}`
+                              : "--"}
+                          </dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>Best season trophies</dt>
-                          <dd>{formatNumber(legendStats.bestSeason?.trophies)}</dd>
+                          <dd>
+                            {formatNumber(legendStats.bestSeason?.trophies)}
+                          </dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>Best season rank</dt>
-                          <dd>{legendStats.bestSeason?.rank ? `#${legendStats.bestSeason.rank}` : "--"}</dd>
+                          <dd>
+                            {legendStats.bestSeason?.rank
+                              ? `#${legendStats.bestSeason.rank}`
+                              : "--"}
+                          </dd>
                         </div>
                         <div className="flex justify-between">
                           <dt>Previous season trophies</dt>
-                          <dd>{formatNumber(legendStats.previousSeason?.trophies)}</dd>
+                          <dd>
+                            {formatNumber(legendStats.previousSeason?.trophies)}
+                          </dd>
                         </div>
                       </dl>
                     </div>
@@ -1501,6 +1715,3 @@ useEffect(() => {
 };
 
 export default PlayerDetails;
-
-
-

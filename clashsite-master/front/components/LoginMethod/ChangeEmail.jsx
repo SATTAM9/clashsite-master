@@ -4,8 +4,7 @@ const ChangeEmail = () => {
   const currentEmail = localStorage.getItem("user");
   const currentUser = JSON.parse(currentEmail);
 
-  //to parent
-  //  const [email, setEmail] = useState("");
+
 
   const [newEmail, setNewEmail] = useState(currentUser.email);
   const [message, setMessage] = useState("");
@@ -17,7 +16,7 @@ const ChangeEmail = () => {
     setLoadingGhangeEmail(true);
 
     try {
-      const res = await fetch("http://localhost:8081/updateEmail", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/updateEmail`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

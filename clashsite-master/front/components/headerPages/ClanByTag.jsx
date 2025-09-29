@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useLanguage } from "../../src/i18n/LanguageContext";
+
 import PageShell, { PageSection, SectionHeader } from "../layouts/PageShell";
 
 export default function ClanByTag() {
-  const { t, direction } = useLanguage();
   const [inputValue, setInputValue] = useState("");
   const [selectedValue, setSelectedValue] = useState("");
   const [clan, setClan] = useState(null);
@@ -20,7 +19,7 @@ export default function ClanByTag() {
 
     const trimmedTag = inputValue.trim();
     if (!trimmedTag) {
-      setError(t("search.clan.errors.missingTag"));
+      setError(" error when search clan");
       return;
     }
 
@@ -33,9 +32,12 @@ export default function ClanByTag() {
       try {
         setLoading(true);
         setError("");
+     
 
         const res = await fetch(
-          `http://localhost:8081/clanbytag/${encodeURIComponent(selectedValue)}`
+          `${import.meta.env.VITE_API_URL}/clanbytag/${encodeURIComponent(
+            selectedValue
+          )}`
         );
         const data = await res.json();
 
@@ -43,21 +45,19 @@ export default function ClanByTag() {
           setClan(data.clanInfo);
         } else {
           setClan(null);
-          const fallbackMessage = t("search.clan.errors.fetchFailed");
+
+          const isErrorString = typeof data.error === "string";
           const normalized =
-            data.error === "invalid_tag"
-              ? t("search.clan.errors.missingTag")
-              : fallbackMessage;
+            data.error === "invalid_tag" ? "missingTag" : "fetchFailed";
+
           setError(
-            typeof data.error === "string" && data.error.trim()
-              ? normalized
-              : fallbackMessage
+            isErrorString && data.error.trim() ? normalized : "fetchFailed"
           );
         }
       } catch (err) {
         console.error("Error fetching clan:", err);
         setClan(null);
-        setError(t("search.clan.errors.fetchFailed"));
+        setError("fetchFailed");
       } finally {
         setLoading(false);
       }
@@ -66,16 +66,10 @@ export default function ClanByTag() {
     if (selectedValue) {
       getClan();
     }
-  }, [selectedValue, searchTrigger, t]);
-
-  const desktopAlignment =
-    direction === "rtl" ? "md:text-right" : "md:text-left";
-  const description =
-    clan?.description || t("search.clan.messages.noDescription");
+  }, [selectedValue, searchTrigger]);
 
   return (
     <PageShell
-      dir={direction}
       padded
       fullWidth={false}
       variant="plain"
@@ -85,16 +79,16 @@ export default function ClanByTag() {
         <PageSection className="space-y-8 text-center">
           <div className="flex flex-col items-center gap-4">
             <img
-              src="/fic.jpeg"
+             src="/h.png"
               loading="lazy"
-              alt="ReqClans emblem"
+              alt="clashvip emblem"
               className="h-20 w-20 rounded-full border border-white/10 object-cover shadow-lg"
             />
             <SectionHeader
               align="center"
-              eyebrow={t("search.clan.labels.tag")}
+              eyebrow={"search clan by tag"}
               title="Find any clan by tag"
-              description={t("search.clan.placeholder")}
+              description={"search clan"}
             />
           </div>
           <form
@@ -108,7 +102,7 @@ export default function ClanByTag() {
               <input
                 type="text"
                 className="w-full rounded-xl border border-white/5 bg-slate-900/80 py-3 pl-10 pr-4 text-base text-white shadow-inner focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
-                placeholder={t("search.clan.placeholder")}
+                placeholder={"search clan "}
                 value={inputValue}
                 onChange={handleChange}
               />
@@ -117,19 +111,22 @@ export default function ClanByTag() {
               type="submit"
               className="inline-flex items-center justify-center rounded-xl bg-sky-400 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-slate-950 transition hover:bg-sky-300"
             >
-              {t("buttons.search")}
+              {"search"}
             </button>
           </form>
           <p className="text-xs text-slate-400">
-            {t("search.clan.labels.tag")} - Example: #P0LYR8
+            {"search clan"} - Example: #P0LYR8
           </p>
         </PageSection>
 
         {loading ? (
           <PageSection className="glass-panel flex min-h-[220px] flex-col items-center justify-center gap-4 border-white/5 bg-slate-950/70 text-slate-200">
-            <span className="h-16 w-16 animate-spin rounded-full border-4 border-slate-700 border-t-sky-400" />
+            <span
+              aria-label="Loading"
+              className="h-16 w-16 animate-spin rounded-full border-4 border-slate-700 border-t-sky-400"
+            />
             <span className="text-sm uppercase tracking-[0.3em]">
-              {t("status.loading")}
+              {"loading"}
             </span>
           </PageSection>
         ) : null}
@@ -138,12 +135,12 @@ export default function ClanByTag() {
           <PageSection className="flex flex-col items-center gap-6 text-center">
             <img
               src="/assets/coc/icons/super-troop-pics/Icon_HV_Super_Wall_Breaker.png"
-              alt={t("search.clan.messages.errorTitle")}
+              alt={"search.clan.messages.errorTitle"}
               className="h-52 w-auto object-contain opacity-90"
             />
             <div className="space-y-3">
               <h2 className="text-2xl font-semibold text-rose-300">
-                {t("search.clan.messages.errorTitle")}
+                {"error"}
               </h2>
               <p className="text-sm text-slate-300">{error}</p>
             </div>
@@ -152,7 +149,7 @@ export default function ClanByTag() {
               onClick={() => window.location.reload()}
               className="inline-flex items-center justify-center rounded-full bg-rose-500 px-6 py-2 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-rose-400"
             >
-              {t("search.clan.messages.tryAgain")}
+              {"try Again"}
             </button>
           </PageSection>
         ) : null}
@@ -169,12 +166,12 @@ export default function ClanByTag() {
                 className="h-28 w-28 rounded-full object-cover"
               />
             </Link>
-            <div className={`flex-1 space-y-3 text-center ${desktopAlignment}`}>
+            <div className={`flex-1 space-y-3 text-center`}>
               <h2 className="text-3xl font-semibold text-white">{clan.name}</h2>
               <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
                 <div className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-white/5">
                   <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
-                    {t("search.clan.labels.tag")}
+                  
                   </p>
                   <p className="mt-1 text-lg font-semibold text-sky-200">
                     {clan.tag}
@@ -182,7 +179,7 @@ export default function ClanByTag() {
                 </div>
                 <div className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-white/5">
                   <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
-                    {t("search.clan.labels.level")}
+                   
                   </p>
                   <p className="mt-1 text-lg font-semibold text-amber-200">
                     {clan.level}
@@ -190,7 +187,7 @@ export default function ClanByTag() {
                 </div>
                 <div className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-white/5 sm:col-span-2">
                   <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
-                    {t("search.clan.labels.name")}
+                   
                   </p>
                   <p className="mt-1 text-lg font-semibold text-white">
                     {clan.name}
@@ -198,10 +195,10 @@ export default function ClanByTag() {
                 </div>
                 <div className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-white/5 sm:col-span-2">
                   <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
-                    {t("search.clan.messages.noDescription")}
+                  
                   </p>
-                  <p className="mt-2 text-sm text-slate-300">
-                    {description}
+                  <p className="mt-1 text-lg font-semibold text-white">
+                    {clan.description || "search.clan.messages.noDescription"}
                   </p>
                 </div>
               </div>

@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import "./scroll.css";
 import { Link } from "react-router-dom";
-import { useLanguage } from "../../src/i18n/LanguageContext";
 
 const options = [
   { value: 32000008, label: "A...land Islands" },
@@ -261,17 +260,15 @@ const options = [
   { value: 32000260, label: "Zimbabwe" },
 ];
 
+
 export default function MySelectByCountry() {
-  const { t, direction } = useLanguage();
   const [clans, setClans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedValue, setSelectedValue] = useState(32000008);
 
   const handleChange = (option) => {
-    if (!option) {
-      return;
-    }
+    if (!option) return;
     setSelectedValue(option.value);
   };
 
@@ -281,13 +278,16 @@ export default function MySelectByCountry() {
         setLoading(true);
         setError("");
 
-        const res = await fetch(`http://localhost:8081/clansoflocation`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ locationID: selectedValue }),
-        });
+        const res = await fetch(
+          ` ${import.meta.env.VITE_API_URL}/clansoflocation`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ locationID: selectedValue }),
+          }
+        );
         const mydata = await res.json();
 
         const clansData = Array.isArray(mydata.clans) ? mydata.clans : [];
@@ -295,46 +295,40 @@ export default function MySelectByCountry() {
       } catch (err) {
         console.error("Error fetching clans:", err);
         setClans([]);
-        setError(t("search.location.errors.fetchFailed"));
+        setError("حدث خطأ في جلب البيانات");
       } finally {
         setLoading(false);
       }
     };
 
     getClans();
-  }, [selectedValue, t]);
+  }, [selectedValue]);
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64" dir={direction}>
-        <div className="loader border-t-4 border-blue-500 border-solid rounded-full w-12 h-12 animate-spin"></div>
-        <span className="sr-only">{t("status.loading")}</span>
+      <div className="flex justify-center items-center h-64">
+        <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     );
   }
 
   if (error) {
-    return (
-      <div className="text-red-500 text-center" dir={direction}>
-        {error}
-      </div>
-    );
+    return <div className="text-red-500 text-center">{error}</div>;
   }
 
-  const statsAlignment = direction === "rtl" ? "text-left" : "text-right";
-
   return (
-    <div
-      className="h-[500px] p-6 bg-gradient-to-r from-[#384f84] via-[#1e293b] to-[#15203a] rounded-2xl shadow-2xl overflow-y-auto scrollbar-custom"
-      dir={direction}
-    >
+    <div className="p-8 rounded-3xl shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white max-w-4xl mx-auto h-[500px] overflow-y-auto">
+      <h2 className="text-2xl font-bold mb-6 text-center text-yellow-400">
+        choose country & clans
+      </h2>
+
       <Select
-        className="mb-6"
-        placeholder={t("search.location.placeholder")}
+        className="mb-6 text-black"
+        placeholder="choose country"
         options={options}
         onChange={handleChange}
         value={options.find((option) => option.value === selectedValue)}
-        isRtl={direction === "rtl"}
       />
 
       <ul className="space-y-4">
@@ -344,55 +338,49 @@ export default function MySelectByCountry() {
           const linkTarget = clanTag ? `/clan/${clanTag}` : null;
           const key = rawTag || `clan-${index}`;
 
-          const badge = (
-            <img
-              src={clan.badge?.url}
-              alt={clan.name || "clan badge"}
-              className="w-16 h-16 rounded-full border-4 border-yellow-400 shadow-md mr-5"
-            />
-          );
-
           return (
             <li
               key={key}
-              className="bg-gray-900/70 backdrop-blur-md rounded-2xl flex items-center p-4 hover:scale-105 hover:shadow-lg transition transform duration-300"
+              className="bg-slate-800/80 rounded-3xl p-4 flex items-center gap-4 shadow-lg hover:scale-[1.02] transition"
             >
               {linkTarget ? (
-                <Link to={linkTarget}>{badge}</Link>
+                <Link to={linkTarget}>
+                  <img
+                    src={clan.badge?.url}
+                    alt={clan.name || "clan badge"}
+                    className="w-16 h-16 rounded-full border-4 border-yellow-400 shadow-md hover:scale-105 transition"
+                  />
+                </Link>
               ) : (
-                <div>{badge}</div>
+                <img
+                  src={clan.badge?.url}
+                  alt={clan.name || "clan badge"}
+                  className="w-16 h-16 rounded-full border-4 border-yellow-400 shadow-md"
+                />
               )}
 
               <div className="flex-1">
                 {linkTarget ? (
                   <Link to={linkTarget}>
-                    <p className="text-xl font-extrabold text-white drop-shadow-md">
-                      {clan.name || "-"}
-                    </p>
-                    <p className="text-sm text-gray-400">{rawTag}</p>
+                    <p className="text-xl font-bold">{clan.name || "-"}</p>
+                    <p className="text-sm text-gray-300">{rawTag}</p>
                   </Link>
                 ) : (
                   <>
-                    <p className="text-xl font-extrabold text-white drop-shadow-md">
-                      {clan.name || "-"}
-                    </p>
-                    <p className="text-sm text-gray-400">{rawTag}</p>
+                    <p className="text-xl font-bold">{clan.name || "-"}</p>
+                    <p className="text-sm text-gray-300">{rawTag}</p>
                   </>
                 )}
               </div>
 
-              <div className={`flex gap-6 ${statsAlignment}`}>
+              <div className="flex gap-6 text-sm text-center">
                 <div>
-                  <p className="text-yellow-400 font-semibold">
-                    {t("search.location.labels.rank")}
-                  </p>
-                  <p className="text-gray-300">{clan.rank ?? "-"}</p>
+                  <p className="text-yellow-400 font-semibold">order</p>
+                  <p className="text-gray-200">{clan.rank ?? "-"}</p>
                 </div>
                 <div>
-                  <p className="text-blue-400 font-semibold">
-                    {t("search.location.labels.level")}
-                  </p>
-                  <p className="text-gray-300">{clan.level ?? "-"}</p>
+                  <p className="text-yellow-400 font-semibold">level</p>
+                  <p className="text-gray-200">{clan.level ?? "-"}</p>
                 </div>
               </div>
             </li>

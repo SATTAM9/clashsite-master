@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+const CACHE_KEY = "clansDataCache";
+const CACHE_DURATION = 60 * 1 * 1000;
 
 const TEXT = {
   title: "Clan Donations Ranking",
@@ -25,7 +27,7 @@ const ITEMS_PER_PAGE = 25;
 const getSeasonDayCount = () => {
   const now = new Date();
   const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)
   );
   const diff = now.getTime() - start.getTime();
   return Math.max(1, Math.floor(diff / MS_PER_DAY) + 1);
@@ -42,11 +44,11 @@ function formatNumber(value, locale = "en") {
 
 const Clansdonatin = () => {
   const locale = "en";
-
   const [clans, setClans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(0);
 
   const seasonDayCount = useMemo(() => getSeasonDayCount(), []);
 
@@ -57,7 +59,21 @@ const Clansdonatin = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch("http://localhost:8081/donationsclans");
+
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { ts, data } = JSON.parse(cached);
+          if (Date.now() - ts < CACHE_DURATION) {
+            setClans(data);
+            setLoading(false);
+            setSecondsSinceUpdate(0);
+            return;
+          }
+        }
+
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/donationsclans`
+        );
         const data = await response.json();
 
         if (!active) return;
@@ -88,9 +104,11 @@ const Clansdonatin = () => {
               const dailyValue =
                 Number(averageDailyDonations) ||
                 Math.round(seasonValue / seasonDayCount);
-              const [nameFromMarkup = ""] = String(nameAndTag || "").split("<br>");
+              const [nameFromMarkup = ""] = String(nameAndTag || "").split(
+                "<br>"
+              );
               const safeName = String(
-                clanName || nameFromMarkup || rawTagString || "Unknown Clan",
+                clanName || nameFromMarkup || rawTagString || "Unknown Clan"
               ).trim();
               const safeBadge = String(badgeUrl || "").trim();
 
@@ -100,7 +118,8 @@ const Clansdonatin = () => {
                 badgeUrl: safeBadge,
                 name: safeName,
                 tag: cleanedTag,
-                displayTag: rawTagString || (cleanedTag ? `#${cleanedTag}` : ""),
+                displayTag:
+                  rawTagString || (cleanedTag ? `#${cleanedTag}` : ""),
                 totalDonations: donatedValue,
                 totalDonationsReceived: receivedValue,
                 totalSeasonDonations: seasonValue,
@@ -111,12 +130,22 @@ const Clansdonatin = () => {
 
           setClans(normalized);
           setCurrentPage(1);
+
+          // 🟢 تعديل: نخزن البيانات في الكاش مع timestamp
+          localStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({ ts: Date.now(), data: normalized })
+          );
+          setSecondsSinceUpdate(0);
         } else {
           setError({ type: "server", message: data.message });
         }
       } catch (err) {
         console.error("Failed to load clans", err);
-        setError({ type: "network", details: err instanceof Error ? err.message : "" });
+        setError({
+          type: "network",
+          details: err instanceof Error ? err.message : "",
+        });
       } finally {
         if (active) setLoading(false);
       }
@@ -129,6 +158,13 @@ const Clansdonatin = () => {
     };
   }, [seasonDayCount]);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsSinceUpdate((prev) => (prev >= 60 ? 0 : prev + 1));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
   const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
   const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
 
@@ -136,13 +172,16 @@ const Clansdonatin = () => {
     () =>
       [...clans].sort(
         (a, b) =>
-          (b?.totalSeasonDonations || 0) - (a?.totalSeasonDonations || 0),
+          (b?.totalSeasonDonations || 0) - (a?.totalSeasonDonations || 0)
       ),
-    [clans],
+    [clans]
   );
 
   const currentClans = sortedClans.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.max(1, Math.ceil(sortedClans.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(sortedClans.length / ITEMS_PER_PAGE)
+  );
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -167,7 +206,7 @@ const Clansdonatin = () => {
         acc.bestDaily = Math.max(acc.bestDaily, daily);
         return acc;
       },
-      { totalSeason: 0, totalDaily: 0, bestDaily: 0 },
+      { totalSeason: 0, totalDaily: 0, bestDaily: 0 }
     );
 
     return {
@@ -202,7 +241,10 @@ const Clansdonatin = () => {
     },
     {
       title: "Average daily per clan",
-      value: `${formatNumber(Math.round(aggregateStats.averageDaily), locale)} XP`,
+      value: `${formatNumber(
+        Math.round(aggregateStats.averageDaily),
+        locale
+      )} XP`,
       hint: "Based on current leaderboard",
     },
     {
@@ -217,30 +259,48 @@ const Clansdonatin = () => {
     },
   ];
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const pageDescriptor = useMemo(() => {
     const start = sortedClans.length === 0 ? 0 : indexOfFirstItem + 1;
     const end = Math.min(indexOfLastItem, sortedClans.length);
     return `${start}-${end}`;
-  }, [sortedClans.length, indexOfFirstItem, indexOfLastItem]);
+  });
 
   return (
     <section className="space-y-10">
+      {/*  العداد */}
+      <p
+        className=" pl-[23px]
+  text-slate-400  
+  font-bold           
+  flex items-center gap-2 
+  mt-2"
+      >
+        ⏱ Last updated {secondsSinceUpdate}s ago
+      </p>
+
       <div className="overflow-hidden rounded-3xl bg-slate-950/75 p-8 shadow-2xl ring-1 ring-slate-800/50">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-3">
             <span className="inline-flex items-center rounded-full bg-slate-900/70 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 ring-1 ring-slate-700/60">
               {TEXT.title}
             </span>
-            <h2 className="text-3xl font-bold text-white">{TEXT.subtitle(ITEMS_PER_PAGE)}</h2>
+            <h2 className="text-3xl font-bold text-white">
+              {TEXT.subtitle(ITEMS_PER_PAGE)}
+            </h2>
             <p className="text-sm text-slate-300">
-              Live donation momentum from the last clan war season. Use the table to inspect badges, tag links, and daily averages at a glance.
+              Live donation momentum from the last clan war season. Use the
+              table to inspect badges, tag links, and daily averages at a
+              glance.
             </p>
           </div>
           <div className="rounded-2xl bg-slate-900/60 px-4 py-3 text-sm text-slate-200 ring-1 ring-slate-700/60">
             <p className="font-semibold">
               {TEXT.pageInfo(currentPage, totalPages)}
             </p>
-            <p className="text-xs text-slate-400">Showing clans {pageDescriptor}</p>
+            <p className="text-xs text-slate-400">
+              Showing clans {pageDescriptor}
+            </p>
           </div>
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -252,7 +312,9 @@ const Clansdonatin = () => {
               <p className="text-xs uppercase tracking-wider text-slate-400">
                 {card.title}
               </p>
-              <p className="mt-2 text-2xl font-semibold text-white">{card.value}</p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {card.value}
+              </p>
               {card.hint ? (
                 <p className="mt-1 text-xs text-slate-400">{card.hint}</p>
               ) : null}
@@ -296,17 +358,20 @@ const Clansdonatin = () => {
                     "bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-slate-900/80 border border-emerald-400/20 text-white hover:from-emerald-500/25 hover:via-emerald-500/15 hover:to-slate-900/90",
                     "bg-gradient-to-r from-purple-500/20 via-purple-500/10 to-slate-900/80 border border-purple-400/20 text-white hover:from-purple-500/25 hover:via-purple-500/15 hover:to-slate-900/90",
                   ];
-                  const zebraRowClass = index % 2 === 0
-                    ? "bg-slate-950/40 text-slate-200 hover:bg-slate-900/70"
-                    : "bg-slate-900/40 text-slate-200 hover:bg-slate-900/70";
-                  const highlightRowClass = rankPosition <= 4
-                    ? topRankRowClasses[rankPosition - 1]
-                    : zebraRowClass;
+                  const zebraRowClass =
+                    index % 2 === 0
+                      ? "bg-slate-950/40 text-slate-200 hover:bg-slate-900/70"
+                      : "bg-slate-900/40 text-slate-200 hover:bg-slate-900/70";
+                  const highlightRowClass =
+                    rankPosition <= 4
+                      ? topRankRowClasses[rankPosition - 1]
+                      : zebraRowClass;
                   const fallbackSrcMatch = clan.badgeUrl
                     ? null
                     : clan.logoHTML.match(/src="([^"]*)"/i);
                   const badgeSrc =
-                    clan.badgeUrl || (fallbackSrcMatch ? fallbackSrcMatch[1] : "");
+                    clan.badgeUrl ||
+                    (fallbackSrcMatch ? fallbackSrcMatch[1] : "");
                   const badgeNode = badgeSrc ? (
                     <img
                       src={badgeSrc}
@@ -326,7 +391,9 @@ const Clansdonatin = () => {
                     <>
                       {badgeNode}
                       <div className="flex flex-col leading-tight">
-                        <span className="font-semibold text-white">{clan.name}</span>
+                        <span className="font-semibold text-white">
+                          {clan.name}
+                        </span>
                         <span className="text-xs text-slate-400">
                           {clan.displayTag || TEXT.unavailable}
                         </span>
@@ -340,7 +407,9 @@ const Clansdonatin = () => {
                       key={clan.id || clan.displayTag || rankPosition}
                       className={`transition ${highlightRowClass}`}
                     >
-                      <td className="px-4 py-3 font-semibold text-slate-100">#{rankPosition}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-100">
+                        #{rankPosition}
+                      </td>
                       <td className="px-4 py-3">
                         {linkTarget ? (
                           <Link
@@ -350,7 +419,9 @@ const Clansdonatin = () => {
                             {clanDetails}
                           </Link>
                         ) : (
-                          <div className="flex items-center gap-3 text-slate-200">{clanDetails}</div>
+                          <div className="flex items-center gap-3 text-slate-200">
+                            {clanDetails}
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3 text-slate-200">

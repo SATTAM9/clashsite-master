@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import CapitalLootChart from "./analytics/CapitalLootChart";
-import { ASSET_BASE_URL, LOCAL_ICON_BASE, buildLabelSources, buildLocalFromRemote, createFallbackHandler, dedupeLabels, getImageSource, pickIconUrl } from "../lib/cocAssets";
+import {
+  ASSET_BASE_URL,
+  LOCAL_ICON_BASE,
+  buildLabelSources,
+  buildLocalFromRemote,
+  createFallbackHandler,
+  dedupeLabels,
+  getImageSource,
+  pickIconUrl,
+} from "../lib/cocAssets";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL 
 const formatNumber = (value) => {
   if (value === null || value === undefined) return "--";
   const numeric = Number(value);
@@ -23,7 +33,9 @@ const hideImgOnError = (event) => {
 const buildBadgeSources = (badge) => {
   if (!badge) return { local: "", remote: "" };
   const remote = badge.large || badge.medium || badge.small || badge.url || "";
-  const local = buildLocalFromRemote(remote) || `${LOCAL_ICON_BASE}/badges/${badge.id || ""}.png`;
+  const local =
+    buildLocalFromRemote(remote) ||
+    `${LOCAL_ICON_BASE}/badges/${badge.id || ""}.png`;
   return { local, remote };
 };
 
@@ -41,8 +53,10 @@ const buildLeagueSources = (league) => {
 
 const buildClanIngameLink = (tag) => {
   if (!tag) return "";
-  const normalized = tag.startsWith('#') ? tag : `#${tag}`;
-  return `https://link.clashofclans.com/en?action=OpenClanProfile&tag=${encodeURIComponent(normalized)}`;
+  const normalized = tag.startsWith("#") ? tag : `#${tag}`;
+  return `https://link.clashofclans.com/en?action=OpenClanProfile&tag=${encodeURIComponent(
+    normalized
+  )}`;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -64,6 +78,12 @@ const CAPITAL_TAB_ITEMS = [
   { id: "defense", label: "Defense Log" },
 ];
 
+const WAR_TAB_ITEMS = [
+  { id: "overview", label: "Current War" },
+  { id: "log", label: "War Log" },
+  { id: "league", label: "War League" },
+];
+
 const prettifyText = (value) => {
   if (!value) return "--";
   return String(value)
@@ -80,6 +100,60 @@ const formatDateTime = (value) => {
   return date.toLocaleString();
 };
 
+const getWarStateLabel = (state) => {
+  switch (state) {
+    case "preparation":
+      return "Preparation Day";
+    case "inWar":
+      return "Battle Day";
+    case "warEnded":
+      return "War Ended";
+    case "notInWar":
+      return "Not in War";
+    default:
+      return state ? prettifyText(state) : "--";
+  }
+};
+
+const getWarResultLabel = (result) => {
+  switch (result) {
+    case "win":
+      return "Win";
+    case "lose":
+    case "loss":
+      return "Loss";
+    case "tie":
+    case "draw":
+      return "Tie";
+    default:
+      return result ? prettifyText(result) : "Unknown";
+  }
+};
+
+const getWarResultTone = (result) => {
+  switch (result) {
+    case "win":
+      return "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/40";
+    case "lose":
+    case "loss":
+      return "bg-rose-500/10 text-rose-300 ring-1 ring-rose-500/40";
+    case "tie":
+    case "draw":
+      return "bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/40";
+    default:
+      return "bg-slate-500/10 text-slate-200 ring-1 ring-slate-500/40";
+  }
+};
+
+const formatPercentage = (value, fractionDigits = 1) => {
+  if (value === null || value === undefined) return "--";
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "--";
+  }
+  return `${numeric.toFixed(fractionDigits)}%`;
+};
+
 const ClanDetails = () => {
   const { tag } = useParams();
   const [clan, setClan] = useState(null);
@@ -91,6 +165,16 @@ const ClanDetails = () => {
   const [capitalError, setCapitalError] = useState("");
   const [copyFeedback, setCopyFeedback] = useState("");
   const [capitalActiveTab, setCapitalActiveTab] = useState("overview");
+
+  const [warData, setWarData] = useState({
+    currentWar: null,
+    warLog: [],
+    leagueGroup: null,
+  });
+  const [warWarnings, setWarWarnings] = useState([]);
+  const [warLoading, setWarLoading] = useState(false);
+  const [warError, setWarError] = useState("");
+  const [warActiveTab, setWarActiveTab] = useState("overview");
 
   const [nameHistory, setNameHistory] = useState([]);
   const [nameHistoryLoading, setNameHistoryLoading] = useState(false);
@@ -135,7 +219,9 @@ const ClanDetails = () => {
         }
         console.error("clanbytagForDetails", err);
         setClan(null);
-        setError("Unable to fetch clan information right now. Please try again later.");
+        setError(
+          "Unable to fetch clan information right now. Please try again later."
+        );
       } finally {
         setLoading(false);
       }
@@ -150,68 +236,129 @@ const ClanDetails = () => {
   const badgeSources = useMemo(() => buildBadgeSources(clan?.badge), [clan]);
   const locationName = clan?.location?.name || "--";
   const seasonDayCount = useMemo(() => getSeasonDayCount(), []);
-  const locale = 'en';
+  const locale = "en";
 
-
-useEffect(() => {
-  if (!clan?.tag) {
-    setCapitalSeasons([]);
-    return;
-  }
-
-  let isCancelled = false;
-  const controller = new AbortController();
-
-  const fetchCapitalRaid = async () => {
-    setCapitalLoading(true);
-    setCapitalError("");
-
-    const normalizedTag = clan.tag.replace(/^#/, "");
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/clans/${encodeURIComponent(normalizedTag)}/capitalraid?limit=3`,
-        { signal: controller.signal }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
-      }
-
-      const payload = await response.json();
-      if (isCancelled) {
-        return;
-      }
-
-      if (payload.success && Array.isArray(payload.seasons)) {
-        setCapitalSeasons(payload.seasons);
-      } else {
-        setCapitalSeasons([]);
-        setCapitalError(payload.error || "Unable to load capital raid data.");
-      }
-    } catch (err) {
-      if (err.name === "AbortError") {
-        return;
-      }
-      if (!isCancelled) {
-        console.error("capitalraid fetch", err);
-        setCapitalSeasons([]);
-        setCapitalError("Unable to load capital raid data.");
-      }
-    } finally {
-      if (!isCancelled) {
-        setCapitalLoading(false);
-      }
+  useEffect(() => {
+    if (!clan?.tag) {
+      setCapitalSeasons([]);
+      return;
     }
-  };
 
-  fetchCapitalRaid();
+    let isCancelled = false;
+    const controller = new AbortController();
 
-  return () => {
-    isCancelled = true;
-    controller.abort();
-  };
-}, [clan?.tag]);
+    const fetchCapitalRaid = async () => {
+      setCapitalLoading(true);
+      setCapitalError("");
+
+      const normalizedTag = clan.tag.replace(/^#/, "");
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clans/${encodeURIComponent(
+            normalizedTag
+          )}/capitalraid?limit=3`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        if (isCancelled) {
+          return;
+        }
+
+        if (payload.success && Array.isArray(payload.seasons)) {
+          setCapitalSeasons(payload.seasons);
+        } else {
+          setCapitalSeasons([]);
+          setCapitalError(payload.error || "Unable to load capital raid data.");
+        }
+      } catch (err) {
+        if (err.name === "AbortError") {
+          return;
+        }
+        if (!isCancelled) {
+          console.error("capitalraid fetch", err);
+          setCapitalSeasons([]);
+          setCapitalError("Unable to load capital raid data.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setCapitalLoading(false);
+        }
+      }
+    };
+
+    fetchCapitalRaid();
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [clan?.tag]);
+
+
+   useEffect(() => {
+    if (!clan?.tag) return;
+
+    const controller = new AbortController();
+    let isCancelled = false;
+
+    const fetchWarData = async () => {
+      setWarLoading(true);
+      setWarError("");
+      setWarWarnings([]);
+      setWarData({ currentWar: null });
+      setWarActiveTab("overview");
+
+      const normalizedTag = clan.tag.replace(/^#/, "");
+
+      try {
+      
+        const response = await fetch(
+          `${API_BASE_URL}/clanwar/${encodeURIComponent(normalizedTag)}`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        if (isCancelled) return;
+
+        if (payload.success) {
+        
+          setWarData({
+            currentWar: payload.currentWar ?? null,
+          });
+        } else {
+          setWarError(payload.error || "Unable to load war data.");
+        }
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        console.error("clan war fetch", err);
+        if (!isCancelled) {
+          setWarData({ currentWar: null });
+          setWarError("Unable to load war data.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setWarLoading(false);
+        }
+      }
+    };
+
+    fetchWarData();
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [clan?.tag]);
 
   useEffect(() => {
     const normalizedTag = clan?.tag ? clan.tag.replace(/^#/, "") : "";
@@ -247,7 +394,9 @@ useEffect(() => {
         }
 
         if (payload.success) {
-          const entries = Array.isArray(payload.nameChanges) ? payload.nameChanges : [];
+          const entries = Array.isArray(payload.nameChanges)
+            ? payload.nameChanges
+            : [];
           setNameHistory(entries);
         } else {
           setNameHistory([]);
@@ -282,8 +431,21 @@ useEffect(() => {
       Array.isArray(capitalSeasons) && capitalSeasons.length > 0
         ? capitalSeasons[0]
         : null,
-    [capitalSeasons],
+    [capitalSeasons]
   );
+
+  const currentWar = warData.currentWar;
+  const warLogEntries = useMemo(
+    () => (Array.isArray(warData.warLog) ? warData.warLog : []),
+    [warData.warLog]
+  );
+  const latestWarLogEntry = useMemo(
+    () => (warLogEntries.length > 0 ? warLogEntries[0] : null),
+    [warLogEntries]
+  );
+  const leagueGroup = warData.leagueGroup;
+  const hasWarContent =
+    Boolean(currentWar) || warLogEntries.length > 0 || Boolean(leagueGroup);
 
   const nameHistoryEntries = useMemo(() => {
     if (!Array.isArray(nameHistory) || !nameHistory.length) {
@@ -297,7 +459,8 @@ useEffect(() => {
       if (!entry) {
         return;
       }
-      const timestamp = typeof entry.timestamp === "string" ? entry.timestamp.trim() : "";
+      const timestamp =
+        typeof entry.timestamp === "string" ? entry.timestamp.trim() : "";
       if (!timestamp) {
         return;
       }
@@ -324,17 +487,30 @@ useEffect(() => {
         ? latestCapitalSeason.raidsCompleted
         : metrics.calculatedRaidsCompleted;
     const offensiveMedals =
-      typeof latestCapitalSeason.offensiveReward === "number" && latestCapitalSeason.offensiveReward > 0
+      typeof latestCapitalSeason.offensiveReward === "number" &&
+      latestCapitalSeason.offensiveReward > 0
         ? latestCapitalSeason.offensiveReward
         : metrics.calculatedOffensiveRaidMedals;
 
     return [
       { label: "Raids Completed", value: formatNumber(raidsValue) },
-      { label: "Total Attacks", value: formatNumber(latestCapitalSeason.totalAttacks) },
-      { label: "Enemy Districts Destroyed", value: formatNumber(latestCapitalSeason.enemyDistrictsDestroyed) },
-      { label: "Capital Loot Earned", value: formatNumber(latestCapitalSeason.capitalTotalLoot) },
+      {
+        label: "Total Attacks",
+        value: formatNumber(latestCapitalSeason.totalAttacks),
+      },
+      {
+        label: "Enemy Districts Destroyed",
+        value: formatNumber(latestCapitalSeason.enemyDistrictsDestroyed),
+      },
+      {
+        label: "Capital Loot Earned",
+        value: formatNumber(latestCapitalSeason.capitalTotalLoot),
+      },
       { label: "Offensive Raid Medals", value: formatNumber(offensiveMedals) },
-      { label: "Defensive Raid Medals", value: formatNumber(latestCapitalSeason.defensiveReward) },
+      {
+        label: "Defensive Raid Medals",
+        value: formatNumber(latestCapitalSeason.defensiveReward),
+      },
     ];
   }, [latestCapitalSeason]);
 
@@ -349,7 +525,10 @@ useEffect(() => {
         const end = season.endTime ? new Date(season.endTime) : null;
         const baseDate = start && !Number.isNaN(start.getTime()) ? start : end;
         const label = baseDate
-          ? baseDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+          ? baseDate.toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })
           : season.seasonId || "Season";
         const sortKey = baseDate ? baseDate.getTime() : Number.MAX_SAFE_INTEGER;
 
@@ -363,7 +542,8 @@ useEffect(() => {
           label,
           sortKey,
           capitalLoot: Number(season.capitalTotalLoot) || 0,
-          raidsCompleted: typeof raidsCompleted === "number" ? raidsCompleted : null,
+          raidsCompleted:
+            typeof raidsCompleted === "number" ? raidsCompleted : null,
         };
       })
       .sort((a, b) => a.sortKey - b.sortKey)
@@ -393,18 +573,23 @@ useEffect(() => {
     const winRate = Math.round((wins / totalWars) * 100);
     const streak = Number(clan.warWinStreak) || 0;
     const leagueName = clan.warLeague?.name || "War League";
-    const headline = `With ${formatNumber(wins)} war wins and a ${winRate}% win rate, ${clan.name} keeps pressure on every matchup.`;
+    const headline = `With ${formatNumber(
+      wins
+    )} war wins and a ${winRate}% win rate, ${
+      clan.name
+    } keeps pressure on every matchup.`;
     const details = [
       `Wars played: ${formatNumber(totalWars)}`,
       `Current league: ${leagueName}`,
       streak > 0
         ? `Active win streak: ${formatNumber(streak)} wars`
-        : (wins ? "Latest war result: Victory" : "Latest war result: Ready for the next challenge"),
+        : wins
+        ? "Latest war result: Victory"
+        : "Latest war result: Ready for the next challenge",
     ];
 
     return { headline, details, winRate };
   }, [clan]);
-
 
   const [shareFeedback, setShareFeedback] = useState("");
   const [warShareLink, setWarShareLink] = useState("");
@@ -423,13 +608,22 @@ useEffect(() => {
   }, [clan?.name, clan?.tag, warNarrative]);
 
   const warShareUrl = useMemo(() => {
-    const message = warShareMessage || "Recruiting warriors in Clash of Clans! Join our clan today.";
-    return `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`;
+    const message =
+      warShareMessage ||
+      "Recruiting warriors in Clash of Clans! Join our clan today.";
+    return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      message
+    )}`;
   }, [warShareMessage]);
 
   const warTelegramUrl = useMemo(() => {
-    const shareUrl = encodeURIComponent(warShareLink || "https://link.clashofclans.com/en");
-    const message = encodeURIComponent(warShareMessage || "Recruiting warriors in Clash of Clans! Join our clan today.");
+    const shareUrl = encodeURIComponent(
+      warShareLink || "https://link.clashofclans.com/en"
+    );
+    const message = encodeURIComponent(
+      warShareMessage ||
+        "Recruiting warriors in Clash of Clans! Join our clan today."
+    );
     return `https://t.me/share/url?url=${shareUrl}&text=${message}`;
   }, [warShareLink, warShareMessage]);
 
@@ -438,7 +632,8 @@ useEffect(() => {
   }, [warShareMessage, warShareLink]);
 
   const handleInstagramShare = useCallback(async () => {
-    const defaultMessage = combinedWarShareText || "Recruiting warriors in Clash of Clans!";
+    const defaultMessage =
+      combinedWarShareText || "Recruiting warriors in Clash of Clans!";
     const shareData = {
       title: clan?.name ? `Clan ${clan.name}` : "Clash of Clans war highlight",
       text: defaultMessage,
@@ -502,12 +697,19 @@ useEffect(() => {
     const summarizeLog = (log, prefix) =>
       (Array.isArray(log) ? log : []).map((entry, index) => {
         const districts = Array.isArray(entry.districts) ? entry.districts : [];
-        const totalLooted = districts.reduce((sum, district) => sum + (district.totalLooted || 0), 0);
-        const perfectedDistricts = districts.filter((district) => district.destructionPercent === 100).length;
+        const totalLooted = districts.reduce(
+          (sum, district) => sum + (district.totalLooted || 0),
+          0
+        );
+        const perfectedDistricts = districts.filter(
+          (district) => district.destructionPercent === 100
+        ).length;
 
         return {
           ...entry,
-          key: `${prefix}-${entry?.defender?.tag || entry?.attacker?.tag || index}-${index}`,
+          key: `${prefix}-${
+            entry?.defender?.tag || entry?.attacker?.tag || index
+          }-${index}`,
           totalLooted,
           perfectedDistricts,
         };
@@ -538,13 +740,17 @@ useEffect(() => {
                     key={stat.label}
                     className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60 transition hover:-translate-y-1 hover:ring-sky-400/60"
                   >
-                    <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
+                    <p className="text-xs uppercase tracking-wider text-slate-400">
+                      {stat.label}
+                    </p>
                     <p className="mt-2 text-2xl font-semibold">{stat.value}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-300">Raid metrics are not available.</p>
+              <p className="text-sm text-slate-300">
+                Raid metrics are not available.
+              </p>
             )}
           </div>
         );
@@ -554,7 +760,9 @@ useEffect(() => {
             {capitalTrendPoints.length ? (
               <CapitalLootChart points={capitalTrendPoints} />
             ) : (
-              <p className="text-sm text-slate-300">Capital loot trend data is not available.</p>
+              <p className="text-sm text-slate-300">
+                Capital loot trend data is not available.
+              </p>
             )}
           </div>
         );
@@ -578,14 +786,26 @@ useEffect(() => {
                   {topContributors.map((member, idx) => (
                     <tr
                       key={member.tag}
-                      className={`transition hover:bg-slate-900 ${idx % 2 === 0 ? "bg-slate-950/40" : "bg-slate-900/40"}`}
+                      className={`transition hover:bg-slate-900 ${
+                        idx % 2 === 0 ? "bg-slate-950/40" : "bg-slate-900/40"
+                      }`}
                     >
-                      <td className="px-4 py-3 font-semibold text-slate-100">{member.name}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-100">
+                        {member.name}
+                      </td>
                       <td className="px-4 py-3 text-slate-300">{member.tag}</td>
-                      <td className="px-4 py-3 text-slate-300">{formatNumber(member.attacks)}</td>
-                      <td className="px-4 py-3 text-slate-300">{formatNumber(member.attackLimit)}</td>
-                      <td className="px-4 py-3 text-slate-300">{formatNumber(member.bonusAttackLimit)}</td>
-                      <td className="px-4 py-3 text-emerald-300 font-semibold">{formatNumber(member.capitalResourcesLooted)}</td>
+                      <td className="px-4 py-3 text-slate-300">
+                        {formatNumber(member.attacks)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-300">
+                        {formatNumber(member.attackLimit)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-300">
+                        {formatNumber(member.bonusAttackLimit)}
+                      </td>
+                      <td className="px-4 py-3 text-emerald-300 font-semibold">
+                        {formatNumber(member.capitalResourcesLooted)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -593,7 +813,9 @@ useEffect(() => {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-slate-300">Top contributor data is not available.</p>
+          <p className="text-sm text-slate-300">
+            Top contributor data is not available.
+          </p>
         );
       case "attack":
         return capitalAttackEntries.length ? (
@@ -606,13 +828,18 @@ useEffect(() => {
               >
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-lg font-semibold text-slate-100">{entry.defender?.name || "Unknown Clan"}</p>
-                    <p className="text-xs text-slate-400">{entry.defender?.tag || "--"}</p>
+                    <p className="text-lg font-semibold text-slate-100">
+                      {entry.defender?.name || "Unknown Clan"}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {entry.defender?.tag || "--"}
+                    </p>
                   </div>
                   <div className="text-right text-sm text-slate-300">
                     <p>Attacks: {formatNumber(entry.attackCount)}</p>
                     <p>
-                      Districts: {formatNumber(entry.districtsDestroyed)} / {formatNumber(entry.districtCount)}
+                      Districts: {formatNumber(entry.districtsDestroyed)} /{" "}
+                      {formatNumber(entry.districtCount)}
                     </p>
                     <p>Perfected: {formatNumber(entry.perfectedDistricts)}</p>
                     <p>Loot Gained: {formatNumber(entry.totalLooted)}</p>
@@ -620,25 +847,34 @@ useEffect(() => {
                 </div>
                 {entry.districts && entry.districts.length > 0 ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {entry.districts.slice(0, 6).map((district, districtIdx) => (
-                      <div
-                        key={`${entry.key}-attdistrict-${district.id}-${districtIdx}`}
-                        className="rounded-xl bg-slate-950/60 p-3 text-xs text-slate-200 ring-1 ring-slate-800/40"
-                      >
-                        <p className="font-semibold text-slate-100">{district.name}</p>
-                        <p>Hall {formatNumber(district.hallLevel)}</p>
-                        <p>Destruction: {formatNumber(district.destructionPercent)}%</p>
-                        <p>Attacks: {formatNumber(district.attackCount)}</p>
-                        <p>Loot: {formatNumber(district.totalLooted)}</p>
-                      </div>
-                    ))}
+                    {entry.districts
+                      .slice(0, 6)
+                      .map((district, districtIdx) => (
+                        <div
+                          key={`${entry.key}-attdistrict-${district.id}-${districtIdx}`}
+                          className="rounded-xl bg-slate-950/60 p-3 text-xs text-slate-200 ring-1 ring-slate-800/40"
+                        >
+                          <p className="font-semibold text-slate-100">
+                            {district.name}
+                          </p>
+                          <p>Hall {formatNumber(district.hallLevel)}</p>
+                          <p>
+                            Destruction:{" "}
+                            {formatNumber(district.destructionPercent)}%
+                          </p>
+                          <p>Attacks: {formatNumber(district.attackCount)}</p>
+                          <p>Loot: {formatNumber(district.totalLooted)}</p>
+                        </div>
+                      ))}
                   </div>
                 ) : null}
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-300">Attack log is not available for this weekend.</p>
+          <p className="text-sm text-slate-300">
+            Attack log is not available for this weekend.
+          </p>
         );
       case "defense":
         return capitalDefenseEntries.length ? (
@@ -651,13 +887,18 @@ useEffect(() => {
               >
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-lg font-semibold text-slate-100">{entry.attacker?.name || "Unknown Clan"}</p>
-                    <p className="text-xs text-slate-400">{entry.attacker?.tag || "--"}</p>
+                    <p className="text-lg font-semibold text-slate-100">
+                      {entry.attacker?.name || "Unknown Clan"}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {entry.attacker?.tag || "--"}
+                    </p>
                   </div>
                   <div className="text-right text-sm text-slate-300">
                     <p>Attacks: {formatNumber(entry.attackCount)}</p>
                     <p>
-                      Districts Lost: {formatNumber(entry.districtsDestroyed)} / {formatNumber(entry.districtCount)}
+                      Districts Lost: {formatNumber(entry.districtsDestroyed)} /{" "}
+                      {formatNumber(entry.districtCount)}
                     </p>
                     <p>Perfected: {formatNumber(entry.perfectedDistricts)}</p>
                     <p>Loot Lost: {formatNumber(entry.totalLooted)}</p>
@@ -665,126 +906,574 @@ useEffect(() => {
                 </div>
                 {entry.districts && entry.districts.length > 0 ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {entry.districts.slice(0, 6).map((district, districtIdx) => (
-                      <div
-                        key={`${entry.key}-defdistrict-${district.id}-${districtIdx}`}
-                        className="rounded-xl bg-slate-950/60 p-3 text-xs text-slate-200 ring-1 ring-slate-800/40"
-                      >
-                        <p className="font-semibold text-slate-100">{district.name}</p>
-                        <p>Hall {formatNumber(district.hallLevel)}</p>
-                        <p>Destruction: {formatNumber(district.destructionPercent)}%</p>
-                        <p>Enemy attacks: {formatNumber(district.attackCount)}</p>
-                        <p>Loot Lost: {formatNumber(district.totalLooted)}</p>
-                      </div>
-                    ))}
+                    {entry.districts
+                      .slice(0, 6)
+                      .map((district, districtIdx) => (
+                        <div
+                          key={`${entry.key}-defdistrict-${district.id}-${districtIdx}`}
+                          className="rounded-xl bg-slate-950/60 p-3 text-xs text-slate-200 ring-1 ring-slate-800/40"
+                        >
+                          <p className="font-semibold text-slate-100">
+                            {district.name}
+                          </p>
+                          <p>Hall {formatNumber(district.hallLevel)}</p>
+                          <p>
+                            Destruction:{" "}
+                            {formatNumber(district.destructionPercent)}%
+                          </p>
+                          <p>
+                            Enemy attacks: {formatNumber(district.attackCount)}
+                          </p>
+                          <p>Loot Lost: {formatNumber(district.totalLooted)}</p>
+                        </div>
+                      ))}
                   </div>
                 ) : null}
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-300">Defense log is not available for this weekend.</p>
+          <p className="text-sm text-slate-300">
+            Defense log is not available for this weekend.
+          </p>
         );
+      default:
+        return null;
+    }
+  };
+  const renderWarTabContent = () => {
+    switch (warActiveTab) {
+      case "overview": {
+        const activeWar =
+          currentWar && currentWar.state !== "notInWar" ? currentWar : null;
+        const fallbackLog = latestWarLogEntry;
+
+        if (!activeWar) {
+          return (
+            <div className="space-y-6">
+              {fallbackLog ? (
+                <div className="rounded-2xl bg-slate-900/70 p-6 ring-1 ring-slate-800/60">
+                  <p
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${getWarResultTone(
+                      fallbackLog.result
+                    )}`}
+                  >
+                    {getWarResultLabel(fallbackLog.result || "unknown")}
+                  </p>
+                  <div className="mt-4 grid gap-3 text-sm text-slate-300">
+                    <span className="font-semibold text-slate-100">
+                      {fallbackLog.clan?.name || clan?.name || "Our clan"} vs{" "}
+                      {fallbackLog.opponent?.name || "Opponent"}
+                    </span>
+                    <span>
+                      {formatNumber(fallbackLog.clan?.stars)} -{" "}
+                      {formatNumber(fallbackLog.opponent?.stars)} stars ·{" "}
+                      {formatPercentage(fallbackLog.clan?.destruction)} vs{" "}
+                      {formatPercentage(fallbackLog.opponent?.destruction)}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      Ended {formatDateTime(fallbackLog.endTime)}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-300">
+                  War information is not available right now.
+                </p>
+              )}
+            </div>
+          );
+        }
+
+        const clanBadgeSources = buildBadgeSources(activeWar.clan?.badge);
+        const opponentBadgeSources = buildBadgeSources(
+          activeWar.opponent?.badge
+        );
+        const clanBadgeSrc = getImageSource(clanBadgeSources);
+        const opponentBadgeSrc = getImageSource(opponentBadgeSources);
+        const timelineItems = [
+          {
+            label: "Preparation Start",
+            value: formatDateTime(activeWar.preparationStartTime),
+          },
+          { label: "Battle Start", value: formatDateTime(activeWar.startTime) },
+          { label: "Battle End", value: formatDateTime(activeWar.endTime) },
+          { label: "Team Size", value: formatNumber(activeWar.teamSize) },
+          {
+            label: "Attacks / Member",
+            value: formatNumber(activeWar.attacksPerMember),
+          },
+        ];
+
+        return (
+          <div className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-[1fr,auto,1fr] lg:items-center">
+              <div className="flex flex-col items-center gap-3 rounded-2xl bg-slate-900/70 p-6 text-center ring-1 ring-slate-800/60">
+                {clanBadgeSrc ? (
+                  <img
+                    src={clanBadgeSrc}
+                    alt={`${activeWar.clan?.name || "Our clan"} badge`}
+                    className="h-20 w-20 rounded-full object-contain"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-800 text-sm text-slate-400">
+                    --
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Our Clan
+                  </p>
+                  <p className="text-lg font-semibold text-white">
+                    {activeWar.clan?.name || clan?.name || "--"}
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    {activeWar.clan?.tag || clan?.tag || ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-300">
+                  <span>Stars: {formatNumber(activeWar.clan?.stars)}</span>
+                  <span>
+                    Attacks: {formatNumber(activeWar.clan?.attackCount)}
+                  </span>
+                  <span>
+                    Destruction: {formatPercentage(activeWar.clan?.destruction)}
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-slate-900/70 p-6 text-center ring-1 ring-slate-800/60">
+                <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-950/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-300 ring-1 ring-slate-700/60">
+                  {getWarStateLabel(activeWar.state)}
+                </p>
+                <div className="text-3xl font-semibold text-white">
+                  {formatNumber(activeWar.clan?.stars)} :{" "}
+                  {formatNumber(activeWar.opponent?.stars)}
+                </div>
+                <p className="mt-2 text-sm text-slate-300">
+                  {formatPercentage(activeWar.clan?.destruction)} vs{" "}
+                  {formatPercentage(activeWar.opponent?.destruction)}
+                </p>
+                <p className="mt-4 text-xs text-slate-400">
+                  {formatDateTime(activeWar.preparationStartTime)} →{" "}
+                  {formatDateTime(activeWar.endTime)}
+                </p>
+              </div>
+              <div className="flex flex-col items-center gap-3 rounded-2xl bg-slate-900/70 p-6 text-center ring-1 ring-slate-800/60">
+                {opponentBadgeSrc ? (
+                  <img
+                    src={opponentBadgeSrc}
+                    alt={`${activeWar.opponent?.name || "Opponent"} badge`}
+                    className="h-20 w-20 rounded-full object-contain"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-800 text-sm text-slate-400">
+                    --
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Opponent
+                  </p>
+                  <p className="text-lg font-semibold text-white">
+                    {activeWar.opponent?.name || "--"}
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    {activeWar.opponent?.tag || ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-300">
+                  <span>Stars: {formatNumber(activeWar.opponent?.stars)}</span>
+                  <span>
+                    Attacks: {formatNumber(activeWar.opponent?.attackCount)}
+                  </span>
+                  <span>
+                    Destruction:{" "}
+                    {formatPercentage(activeWar.opponent?.destruction)}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+              {timelineItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/60"
+                >
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+      case "log": {
+        if (!warLogEntries.length) {
+          const logWarning = (warWarnings || []).find(
+            (warn) =>
+              warn.code === "war_log_private" ||
+              warn.code === "war_log_unavailable"
+          );
+          return (
+            <p className="text-sm text-slate-300">
+              {logWarning?.message || "No war log entries are available."}
+            </p>
+          );
+        }
+
+        return (
+          <div className="space-y-4">
+            {warLogEntries.map((entry, index) => {
+              const clanBadgeSources = buildBadgeSources(entry.clan?.badge);
+              const opponentBadgeSources = buildBadgeSources(
+                entry.opponent?.badge
+              );
+              const clanBadgeSrc = getImageSource(clanBadgeSources);
+              const opponentBadgeSrc = getImageSource(opponentBadgeSources);
+              const key = entry.endTime
+                ? `${entry.endTime}-${index}`
+                : `war-${index}`;
+
+              return (
+                <div
+                  key={key}
+                  className="rounded-2xl bg-slate-900/70 p-6 ring-1 ring-slate-800/60"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${getWarResultTone(
+                        entry.result
+                      )}`}
+                    >
+                      {getWarResultLabel(entry.result)}
+                    </p>
+                    <span className="text-xs text-slate-400">
+                      Ended {formatDateTime(entry.endTime)}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-6 sm:grid-cols-2">
+                    <div className="flex items-center gap-3">
+                      {clanBadgeSrc ? (
+                        <img
+                          src={clanBadgeSrc}
+                          alt={`${entry.clan?.name || "Our clan"} badge`}
+                          className="h-12 w-12 rounded-full object-contain"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 text-xs text-slate-400">
+                          --
+                        </div>
+                      )}
+                      <div className="text-sm">
+                        <p className="font-semibold text-white">
+                          {entry.clan?.name || clan?.name || "Our clan"}
+                        </p>
+                        <p className="text-slate-400">
+                          {entry.clan?.tag || clan?.tag || ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {opponentBadgeSrc ? (
+                        <img
+                          src={opponentBadgeSrc}
+                          alt={`${entry.opponent?.name || "Opponent"} badge`}
+                          className="h-12 w-12 rounded-full object-contain"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 text-xs text-slate-400">
+                          --
+                        </div>
+                      )}
+                      <div className="text-sm text-slate-300">
+                        <p className="font-semibold text-white">
+                          {entry.opponent?.name || "Opponent"}
+                        </p>
+                        <p className="text-slate-400">
+                          {entry.opponent?.tag || ""}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-slate-950/60 p-4 text-sm text-slate-300 ring-1 ring-slate-800/60">
+                      <p className="text-xs uppercase tracking-wide text-slate-400">
+                        Our Clan
+                      </p>
+                      <p className="mt-2 font-semibold text-emerald-300">
+                        {formatNumber(entry.clan?.stars)} stars
+                      </p>
+                      <p>
+                        Destruction: {formatPercentage(entry.clan?.destruction)}
+                      </p>
+                      <p>Attacks: {formatNumber(entry.clan?.attackCount)}</p>
+                    </div>
+                    <div className="rounded-2xl bg-slate-950/60 p-4 text-sm text-slate-300 ring-1 ring-slate-800/60">
+                      <p className="text-xs uppercase tracking-wide text-slate-400">
+                        Opponent
+                      </p>
+                      <p className="mt-2 font-semibold text-rose-300">
+                        {formatNumber(entry.opponent?.stars)} stars
+                      </p>
+                      <p>
+                        Destruction:{" "}
+                        {formatPercentage(entry.opponent?.destruction)}
+                      </p>
+                      <p>
+                        Attacks: {formatNumber(entry.opponent?.attackCount)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+      case "league": {
+        if (!leagueGroup || leagueGroup.state === "notInWar") {
+          const leagueWarning = (warWarnings || []).find(
+            (warn) =>
+              warn.code === "war_league_unavailable" ||
+              warn.code === "war_league_forbidden"
+          );
+          return (
+            <p className="text-sm text-slate-300">
+              {leagueWarning?.message ||
+                "Clan is not currently part of an active War League group."}
+            </p>
+          );
+        }
+
+        const rounds = Array.isArray(leagueGroup.rounds)
+          ? leagueGroup.rounds
+          : [];
+        const clans = Array.isArray(leagueGroup.clans) ? leagueGroup.clans : [];
+
+        return (
+          <div className="space-y-6">
+            <div className="rounded-2xl bg-slate-900/70 p-6 ring-1 ring-slate-800/60">
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Current State
+              </p>
+              <p className="mt-2 text-lg font-semibold text-white">
+                {getWarStateLabel(leagueGroup.state)}
+              </p>
+              {leagueGroup.season ? (
+                <p className="text-sm text-slate-300">
+                  Season: {leagueGroup.season}
+                </p>
+              ) : null}
+            </div>
+            <div className="overflow-x-auto rounded-2xl border border-slate-800">
+              <table className="min-w-full divide-y divide-slate-800">
+                <thead className="bg-slate-900/80 text-xs uppercase tracking-wide text-slate-300">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Clan</th>
+                    <th className="px-4 py-3 text-left">Tag</th>
+                    <th className="px-4 py-3 text-left">Level</th>
+                    <th className="px-4 py-3 text-left">Members</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-slate-950/60 text-sm text-slate-200">
+                  {clans.length ? (
+                    clans.map((groupClan) => {
+                      const badgeSources = buildBadgeSources(groupClan.badge);
+                      const badgeSrc = getImageSource(badgeSources);
+                      const memberCount = Array.isArray(groupClan.members)
+                        ? groupClan.members.length
+                        : 0;
+                      return (
+                        <tr
+                          key={groupClan.tag || groupClan.name}
+                          className="border-b border-slate-900/40 last:border-0"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              {badgeSrc ? (
+                                <img
+                                  src={badgeSrc}
+                                  alt={`${groupClan.name || "Clan"} badge`}
+                                  className="h-10 w-10 rounded-full object-contain"
+                                />
+                              ) : (
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-800 text-xs text-slate-400">
+                                  --
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-white">
+                                  {groupClan.name || "Unknown"}
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                  {groupClan.tag || ""}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">{groupClan.tag || "--"}</td>
+                          <td className="px-4 py-3">
+                            {formatNumber(groupClan.level)}
+                          </td>
+                          <td className="px-4 py-3">{memberCount}</td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-5 text-center text-slate-400"
+                      >
+                        War League clans are not available.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {rounds.length ? (
+              <div className="rounded-2xl bg-slate-900/70 p-6 ring-1 ring-slate-800/60">
+                <p className="mb-3 text-sm font-semibold text-white">Rounds</p>
+                <div className="flex flex-wrap gap-2">
+                  {rounds.map((round) => {
+                    const activeTags = Array.isArray(round.warTags)
+                      ? round.warTags.filter((tag) => tag && tag !== "#0")
+                      : [];
+                    return (
+                      <span
+                        key={`${round.round}-${activeTags.length}`}
+                        className="rounded-full bg-slate-950/70 px-3 py-1 text-xs text-slate-300 ring-1 ring-slate-800/60"
+                      >
+                        Round {round.round}: {activeTags.length} wars
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        );
+      }
       default:
         return null;
     }
   };
 
   const membersCount = useMemo(() => {
-  if (Array.isArray(clan?.members)) return clan.members.length;
-  if (typeof clan?.members === "number") return clan.members;
-  if (typeof clan?.memberCount === "number") return clan.memberCount;
-  return 0;
-}, [clan]);
+    if (Array.isArray(clan?.members)) return clan.members.length;
+    if (typeof clan?.members === "number") return clan.members;
+    if (typeof clan?.memberCount === "number") return clan.memberCount;
+    return 0;
+  }, [clan]);
 
-const donationSummary = useMemo(() => {
-  if (!Array.isArray(clan?.members) || !clan.members.length) {
-    return { total: 0, averageDaily: 0, bestDaily: 0, bestMember: null };
-  }
+  const donationSummary = useMemo(() => {
+    if (!Array.isArray(clan?.members) || !clan.members.length) {
+      return { total: 0, averageDaily: 0, bestDaily: 0, bestMember: null };
+    }
 
-  const base = clan.members.reduce(
-    (acc, member) => {
-      const donated = Number(member.donations ?? 0);
-      const received = Number(member.received ?? member.donationsReceived ?? 0);
-      const total = donated + received;
-      acc.total += total;
-      const daily = seasonDayCount > 0 ? total / seasonDayCount : total;
-      acc.totalDaily += daily;
-      if (daily > acc.bestDaily) {
-        acc.bestDaily = daily;
-        acc.bestMember = member;
-      }
-      return acc;
-    },
-    { total: 0, totalDaily: 0, bestDaily: 0, bestMember: null },
-  );
+    const base = clan.members.reduce(
+      (acc, member) => {
+        const donated = Number(member.donations ?? 0);
+        const received = Number(
+          member.received ?? member.donationsReceived ?? 0
+        );
+        const total = donated + received;
+        acc.total += total;
+        const daily = seasonDayCount > 0 ? total / seasonDayCount : total;
+        acc.totalDaily += daily;
+        if (daily > acc.bestDaily) {
+          acc.bestDaily = daily;
+          acc.bestMember = member;
+        }
+        return acc;
+      },
+      { total: 0, totalDaily: 0, bestDaily: 0, bestMember: null }
+    );
 
-  const averageDaily = clan.members.length ? base.totalDaily / clan.members.length : 0;
+    const averageDaily = clan.members.length
+      ? base.totalDaily / clan.members.length
+      : 0;
 
-  return {
-    total: base.total,
-    averageDaily,
-    bestDaily: base.bestDaily,
-    bestMember: base.bestMember,
-  };
-}, [clan, seasonDayCount]);
+    return {
+      total: base.total,
+      averageDaily,
+      bestDaily: base.bestDaily,
+      bestMember: base.bestMember,
+    };
+  }, [clan, seasonDayCount]);
 
-const donationHighlightCards = useMemo(() => {
-  if (!Array.isArray(clan?.members) || !clan.members.length) return [];
+  const donationHighlightCards = useMemo(() => {
+    if (!Array.isArray(clan?.members) || !clan.members.length) return [];
 
-  const { total, averageDaily, bestDaily, bestMember } = donationSummary;
-  const bestMemberName = bestMember?.name ? bestMember.name : null;
-  const bestHint = bestMemberName ? `Led by ${bestMemberName}` : "Across current roster";
+    const { total, averageDaily, bestDaily, bestMember } = donationSummary;
+    const bestMemberName = bestMember?.name ? bestMember.name : null;
+    const bestHint = bestMemberName
+      ? `Led by ${bestMemberName}`
+      : "Across current roster";
 
-  return [
-    {
-      label: "Total donations logged",
-      value: formatNumber(Math.round(total), locale),
-      hint: "Includes the full member roster",
-    },
-    {
-      label: "Average daily per clan",
-      value: `${formatNumber(Math.round(averageDaily), locale)} XP`,
-      hint: "Based on current member activity",
-    },
-    {
-      label: "Best 24h streak",
-      value: `${formatNumber(Math.round(bestDaily), locale)} XP`,
-      hint: bestHint,
-    },
-  ];
-}, [clan, donationSummary, locale]);
+    return [
+      {
+        label: "Total donations logged",
+        value: formatNumber(Math.round(total), locale),
+        hint: "Includes the full member roster",
+      },
+      {
+        label: "Average daily per clan",
+        value: `${formatNumber(Math.round(averageDaily), locale)} XP`,
+        hint: "Based on current member activity",
+      },
+      {
+        label: "Best 24h streak",
+        value: `${formatNumber(Math.round(bestDaily), locale)} XP`,
+        hint: bestHint,
+      },
+    ];
+  }, [clan, donationSummary, locale]);
 
-const quickStats = useMemo(
+  const quickStats = useMemo(
     () => [
       { label: "Members", value: `${formatNumber(membersCount)} / 50` },
       { label: "Clan Level", value: formatNumber(clan?.level) },
       { label: "War Win Streak", value: formatNumber(clan?.warWinStreak) },
-      { label: "Capital Hall", value: formatNumber(clan?.clanCapital?.capitalHallLevel) },
+      {
+        label: "Capital Hall",
+        value: formatNumber(clan?.clanCapital?.capitalHallLevel),
+      },
     ],
-    [clan, membersCount],
+    [clan, membersCount]
   );
 
   const performanceStats = useMemo(
     () => [
       { label: "Clan Points", value: formatNumber(clan?.points) },
-      { label: "Builder Base Points", value: formatNumber(clan?.builderBasePoints) },
+      {
+        label: "Builder Base Points",
+        value: formatNumber(clan?.builderBasePoints),
+      },
       { label: "War Wins", value: formatNumber(clan?.warWins) },
       { label: "War League", value: clan?.warLeague?.name || "--" },
     ],
-    [clan],
+    [clan]
   );
 
   const warSettings = useMemo(
     () => [
       { label: "Clan Type", value: prettifyText(clan?.type) },
       { label: "War Frequency", value: prettifyText(clan?.warFrequency) },
-      { label: "Required Trophies", value: formatNumber(clan?.requiredTrophies) },
+      {
+        label: "Required Trophies",
+        value: formatNumber(clan?.requiredTrophies),
+      },
       { label: "War Log", value: clan?.isWarLogPublic ? "Public" : "Private" },
       { label: "Chat Language", value: clan?.chatLanguage?.name || "--" },
       { label: "Location", value: locationName },
     ],
-    [clan, locationName],
+    [clan, locationName]
   );
 
   const labelsList = useMemo(() => dedupeLabels(clan?.labels), [clan?.labels]);
@@ -821,7 +1510,9 @@ const quickStats = useMemo(
   if (!clan) {
     return (
       <div className="flex min-h-[320px] items-center justify-center text-white">
-        <p className="text-lg font-semibold">Clan information is not available.</p>
+        <p className="text-lg font-semibold">
+          Clan information is not available.
+        </p>
       </div>
     );
   }
@@ -830,7 +1521,10 @@ const quickStats = useMemo(
     <div className="min-h-screen bg-gradient-to-r from-[#384f84] via-[#1e293b] to-[#15203a] py-12">
       <div className="mx-auto max-w-6xl px-4 space-y-10 text-white">
         <section className="relative overflow-hidden rounded-3xl bg-slate-950/70 p-8 shadow-2xl ring-1 ring-slate-700/40">
-          <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl" aria-hidden="true" />
+          <div
+            className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl"
+            aria-hidden="true"
+          />
           <div className="relative z-10 flex flex-col gap-10 xl:flex-row xl:items-start">
             <aside className="flex flex-col items-center gap-6 text-center xl:w-60 xl:text-left">
               <div className="flex h-40 w-40 items-center justify-center rounded-full bg-slate-900/80 shadow-xl ring-4 ring-slate-800/60">
@@ -846,26 +1540,46 @@ const quickStats = useMemo(
                 )}
               </div>
               <div className="flex flex-wrap items-center justify-center gap-3 text-xs uppercase tracking-wide text-slate-300 xl:justify-start">
-                <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">Level {formatNumber(clan?.level)}</span>
-                <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{formatNumber(membersCount)} / 50 Members</span>
-                <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{prettifyText(clan?.type)}</span>
+                <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">
+                  Level {formatNumber(clan?.level)}
+                </span>
+                <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">
+                  {formatNumber(membersCount)} / 50 Members
+                </span>
+                <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">
+                  {prettifyText(clan?.type)}
+                </span>
               </div>
             </aside>
             <div className="flex-1 space-y-8">
               <div className="space-y-4">
                 <div className="space-y-3">
-                  <h1 className="text-4xl font-black tracking-tight">{clan.name || "Unknown Clan"}</h1>
+                  <h1 className="text-4xl font-black tracking-tight">
+                    {clan.name || "Unknown Clan"}
+                  </h1>
                   <div className="flex flex-wrap gap-3 text-sm text-slate-200/90">
-                    <span className="rounded-full bg-slate-900/70 px-3 py-1 font-mono ring-1 ring-white/10">{clan.tag || "--"}</span>
-                    <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{prettifyText(clan?.warFrequency)}</span>
-                    <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{clan?.isWarLogPublic ? "War log: Public" : "War log: Private"}</span>
+                    <span className="rounded-full bg-slate-900/70 px-3 py-1 font-mono ring-1 ring-white/10">
+                      {clan.tag || "--"}
+                    </span>
+                    <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">
+                      {prettifyText(clan?.warFrequency)}
+                    </span>
+                    <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">
+                      {clan?.isWarLogPublic
+                        ? "War log: Public"
+                        : "War log: Private"}
+                    </span>
                     {clan?.location?.name ? (
-                      <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">{clan.location.name}</span>
+                      <span className="rounded-full bg-slate-900/70 px-3 py-1 ring-1 ring-white/10">
+                        {clan.location.name}
+                      </span>
                     ) : null}
                   </div>
                 </div>
                 {clan.description ? (
-                  <p className="text-sm leading-relaxed text-slate-200/90">{clan.description}</p>
+                  <p className="text-sm leading-relaxed text-slate-200/90">
+                    {clan.description}
+                  </p>
                 ) : null}
               </div>
               {labelsList.length ? (
@@ -891,17 +1605,25 @@ const quickStats = useMemo(
                     );
                   })}
                 </div>
-              ) : null}            {warNarrative ? (
+              ) : null}{" "}
+              {warNarrative ? (
                 <div className="rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60">
                   <div className="space-y-3">
                     <div className="space-y-1">
-                      <h2 className="text-xl font-semibold text-white">War Room Insights</h2>
-                      <p className="text-sm text-slate-300">{warNarrative.headline}</p>
+                      <h2 className="text-xl font-semibold text-white">
+                        War Room Insights
+                      </h2>
+                      <p className="text-sm text-slate-300">
+                        {warNarrative.headline}
+                      </p>
                     </div>
                     <ul className="space-y-1 text-sm text-slate-200">
                       {warNarrative.details.map((detail) => (
                         <li key={detail} className="flex items-start gap-2">
-                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true" />
+                          <span
+                            className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-400"
+                            aria-hidden="true"
+                          />
                           <span>{detail}</span>
                         </li>
                       ))}
@@ -909,9 +1631,13 @@ const quickStats = useMemo(
                     <div className="rounded-2xl bg-slate-950/70 p-4 text-sm text-slate-200 ring-1 ring-slate-800/60">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <p className="text-base font-semibold text-white">Rally your clan</p>
+                          <p className="text-base font-semibold text-white">
+                            Rally your clan
+                          </p>
                           <p className="mt-1 text-sm text-slate-300">
-                            Celebrate the story behind the stats with a quick share or invite -- a nod to the narrative moments featured on Top Req Clans.
+                            Celebrate the story behind the stats with a quick
+                            share or invite -- a nod to the narrative moments
+                            featured on Top Req Clans.
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-3 sm:justify-end">
@@ -948,7 +1674,9 @@ const quickStats = useMemo(
                         </div>
                       </div>
                       {shareFeedback ? (
-                        <p className="mt-2 text-xs text-emerald-300 sm:text-right">{shareFeedback}</p>
+                        <p className="mt-2 text-xs text-emerald-300 sm:text-right">
+                          {shareFeedback}
+                        </p>
                       ) : null}
                     </div>
                   </div>
@@ -973,7 +1701,9 @@ const quickStats = useMemo(
                   </a>
                 ) : null}
                 {copyFeedback ? (
-                  <span className="text-xs text-emerald-300">{copyFeedback}</span>
+                  <span className="text-xs text-emerald-300">
+                    {copyFeedback}
+                  </span>
                 ) : null}
               </div>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -982,8 +1712,12 @@ const quickStats = useMemo(
                     key={stat.label}
                     className="flex min-h-[110px] flex-col justify-between rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/60"
                   >
-                    <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
-                    <p className="mt-2 text-xl font-semibold text-white">{stat.value}</p>
+                    <p className="text-xs uppercase tracking-wider text-slate-400">
+                      {stat.label}
+                    </p>
+                    <p className="mt-2 text-xl font-semibold text-white">
+                      {stat.value}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -994,10 +1728,16 @@ const quickStats = useMemo(
                       key={card.label}
                       className="flex min-h-[120px] flex-col justify-between rounded-2xl bg-slate-900/70 p-4 ring-1 ring-slate-800/60"
                     >
-                      <p className="text-xs uppercase tracking-wider text-slate-400">{card.label}</p>
-                      <p className="mt-2 text-xl font-semibold text-white">{card.value}</p>
+                      <p className="text-xs uppercase tracking-wider text-slate-400">
+                        {card.label}
+                      </p>
+                      <p className="mt-2 text-xl font-semibold text-white">
+                        {card.value}
+                      </p>
                       {card.hint ? (
-                        <p className="mt-1 text-xs text-slate-400">{card.hint}</p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {card.hint}
+                        </p>
                       ) : null}
                     </div>
                   ))}
@@ -1009,48 +1749,66 @@ const quickStats = useMemo(
 
         <section className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-3xl bg-slate-950/70 p-8 shadow-xl ring-1 ring-slate-700/40">
-            <h2 className="text-2xl font-semibold tracking-tight">Clan Performance</h2>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Clan Performance
+            </h2>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {performanceStats.map((stat) => (
                 <div
                   key={stat.label}
                   className="flex min-h-[120px] flex-col justify-between rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60"
                 >
-                  <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">{stat.value}</p>
+                  <p className="text-xs uppercase tracking-wider text-slate-400">
+                    {stat.label}
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {stat.value}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
           <div className="rounded-3xl bg-slate-950/70 p-8 shadow-xl ring-1 ring-slate-700/40">
-            <h2 className="text-2xl font-semibold tracking-tight">Requirements & Settings</h2>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Requirements & Settings
+            </h2>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {warSettings.map((stat) => (
                 <div
                   key={stat.label}
                   className="flex min-h-[120px] flex-col justify-between rounded-2xl bg-slate-900/70 p-5 ring-1 ring-slate-800/60"
                 >
-                  <p className="text-xs uppercase tracking-wider text-slate-400">{stat.label}</p>
-                  <p className="mt-2 text-lg font-semibold text-white">{stat.value}</p>
+                  <p className="text-xs uppercase tracking-wider text-slate-400">
+                    {stat.label}
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-white">
+                    {stat.value}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-
-
         <section className="rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="text-2xl font-semibold tracking-tight">Clan Capital Raids</h3>
+              <h3 className="text-2xl font-semibold tracking-tight">
+                Clan Capital Raids
+              </h3>
               {latestCapitalSeason ? (
                 <p className="text-sm text-slate-300">
-                  {latestCapitalSeason.state === "ongoing" ? "Current weekend" : "Latest weekend"} - {formatDateTime(latestCapitalSeason.startTime)} to {formatDateTime(latestCapitalSeason.endTime)}
+                  {latestCapitalSeason.state === "ongoing"
+                    ? "Current weekend"
+                    : "Latest weekend"}{" "}
+                  - {formatDateTime(latestCapitalSeason.startTime)} to{" "}
+                  {formatDateTime(latestCapitalSeason.endTime)}
                 </p>
               ) : null}
             </div>
-            {capitalLoading ? <span className="text-sm text-slate-400">Loading...</span> : null}
+            {capitalLoading ? (
+              <span className="text-sm text-slate-400">Loading...</span>
+            ) : null}
           </div>
           {capitalLoading ? (
             <div className="flex justify-center py-6">
@@ -1059,10 +1817,16 @@ const quickStats = useMemo(
           ) : capitalError ? (
             <p className="text-sm text-red-400">{capitalError}</p>
           ) : !latestCapitalSeason ? (
-            <p className="text-sm text-slate-300">Capital raid history is not available.</p>
+            <p className="text-sm text-slate-300">
+              Capital raid history is not available.
+            </p>
           ) : (
             <div className="space-y-8">
-              <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Clan capital sections">
+              <div
+                className="flex flex-wrap items-center gap-2"
+                role="tablist"
+                aria-label="Clan capital sections"
+              >
                 {CAPITAL_TAB_ITEMS.map((tab) => {
                   const isActive = capitalActiveTab === tab.id;
                   return (
@@ -1074,7 +1838,9 @@ const quickStats = useMemo(
                       aria-selected={isActive}
                       aria-controls={`capital-tab-${tab.id}`}
                       className={`rounded-full px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${
-                        isActive ? "bg-sky-500 text-slate-950 shadow-sm" : "bg-slate-900/60 text-slate-300 hover:text-white"
+                        isActive
+                          ? "bg-sky-500 text-slate-950 shadow-sm"
+                          : "bg-slate-900/60 text-slate-300 hover:text-white"
                       }`}
                       onClick={() => setCapitalActiveTab(tab.id)}
                     >
@@ -1094,11 +1860,95 @@ const quickStats = useMemo(
           )}
         </section>
 
-
-
         <section className="rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <h3 className="text-2xl font-semibold tracking-tight">Clan Name History</h3>
+            <div>
+              <h3 className="text-2xl font-semibold tracking-tight">
+                Clan Wars
+              </h3>
+              {currentWar && currentWar.state !== "notInWar" ? (
+                <p className="text-sm text-slate-300">
+                  {getWarStateLabel(currentWar.state)} vs{" "}
+                  {currentWar.opponent?.name || "Opponent"}
+                </p>
+              ) : latestWarLogEntry ? (
+                <p className="text-sm text-slate-300">
+                  Latest war ended {formatDateTime(latestWarLogEntry.endTime)}
+                </p>
+              ) : null}
+            </div>
+            {warLoading ? (
+              <span className="text-sm text-slate-400">Loading...</span>
+            ) : null}
+          </div>
+
+          {warWarnings && warWarnings.length ? (
+            <div className="mb-6 flex flex-wrap gap-2">
+              {warWarnings.map((warn, warnIndex) => (
+                <span
+                  key={warn?.code || warn.message || warnIndex}
+                  className="rounded-full bg-amber-500/10 px-3 py-1 text-xs text-amber-200 ring-1 ring-amber-500/30"
+                >
+                  {warn?.message || prettifyText(warn?.code || "warning")}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {warLoading ? (
+            <div className="flex justify-center py-6">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-400 border-t-transparent"></div>
+            </div>
+          ) : warError ? (
+            <p className="text-sm text-red-400">{warError}</p>
+          ) : !hasWarContent ? (
+            <p className="text-sm text-slate-300">
+              War information is not available right now.
+            </p>
+          ) : (
+            <div className="space-y-8">
+              <div
+                className="flex flex-wrap items-center gap-2"
+                role="tablist"
+                aria-label="Clan war sections"
+              >
+                {WAR_TAB_ITEMS.map((tab) => {
+                  const isActive = warActiveTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      id={`war-tab-trigger-${tab.id}`}
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-controls={`war-tab-${tab.id}`}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                        isActive
+                          ? "bg-emerald-500 text-slate-950 shadow-sm"
+                          : "bg-slate-900/60 text-slate-300 hover:text-white"
+                      }`}
+                      onClick={() => setWarActiveTab(tab.id)}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div
+                role="tabpanel"
+                id={`war-tab-${warActiveTab}`}
+                aria-labelledby={`war-tab-trigger-${warActiveTab}`}
+              >
+                {renderWarTabContent()}
+              </div>
+            </div>
+          )}
+        </section>
+        <section className="rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <h3 className="text-2xl font-semibold tracking-tight">
+              Clan Name History
+            </h3>
             {nameHistoryLoading ? (
               <span className="text-sm text-slate-400">Loading...</span>
             ) : null}
@@ -1126,14 +1976,22 @@ const quickStats = useMemo(
                       className="grid gap-2 rounded-2xl bg-slate-900/70 px-5 py-4 ring-1 ring-slate-800/60 sm:grid-cols-[auto,1fr] sm:items-center"
                       title={tooltip}
                     >
-                      <span className="text-lg font-semibold text-white">{entry.timestamp}</span>
+                      <span className="text-lg font-semibold text-white">
+                        {entry.timestamp}
+                      </span>
                       <div className="text-sm text-slate-300">
-                        <span className="font-medium text-slate-100">Changed clan name</span>
+                        <span className="font-medium text-slate-100">
+                          Changed clan name
+                        </span>
                         <div className="mt-1">
                           <span>from </span>
-                          <span className="font-semibold text-amber-300">{fromLabel}</span>
+                          <span className="font-semibold text-amber-300">
+                            {fromLabel}
+                          </span>
                           <span> to </span>
-                          <span className="font-semibold text-emerald-300">{toLabel}</span>
+                          <span className="font-semibold text-emerald-300">
+                            {toLabel}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1142,14 +2000,20 @@ const quickStats = useMemo(
               })}
             </ul>
           ) : (
-            <p className="text-sm text-slate-300">No clan name changes have been recorded yet.</p>
+            <p className="text-sm text-slate-300">
+              No clan name changes have been recorded yet.
+            </p>
           )}
         </section>
 
         <section className="rounded-3xl bg-slate-950/70 p-8 text-white shadow-xl ring-1 ring-slate-700/40">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <h3 className="text-2xl font-semibold tracking-tight">Clan Members</h3>
-            <p className="text-sm text-slate-300">Total members: {formatNumber(membersCount)}</p>
+            <h3 className="text-2xl font-semibold tracking-tight">
+              Clan Members
+            </h3>
+            <p className="text-sm text-slate-300">
+              Total members: {formatNumber(membersCount)}
+            </p>
           </div>
           <div className="overflow-x-auto rounded-2xl border border-slate-800">
             <table className="min-w-full divide-y divide-slate-800">
@@ -1178,11 +2042,15 @@ const quickStats = useMemo(
                       player.received ?? player.donationsReceived ?? 0
                     );
                     const totalDonations = donationsGiven + donationsReceived;
-                    const dailyAverage = Math.round(totalDonations / seasonDayCount);
+                    const dailyAverage = Math.round(
+                      totalDonations / seasonDayCount
+                    );
                     return (
                       <tr
                         key={player.tag}
-                        className={`text-sm transition hover:bg-slate-900 ${idx % 2 === 0 ? "bg-slate-950/40" : "bg-slate-900/40"}`}
+                        className={`text-sm transition hover:bg-slate-900 ${
+                          idx % 2 === 0 ? "bg-slate-950/40" : "bg-slate-900/40"
+                        }`}
                       >
                         <td className="px-4 py-3">
                           <Link to={`/player/${player.tag.replace("#", "")}`}>
@@ -1199,12 +2067,22 @@ const quickStats = useMemo(
                           </Link>
                         </td>
                         <td className="px-4 py-3 font-semibold">
-                          <Link to={`/player/${player.tag.replace("#", "")}`}>{player.name}</Link>
+                          <Link to={`/player/${player.tag.replace("#", "")}`}>
+                            {player.name}
+                          </Link>
                         </td>
-                        <td className="px-4 py-3 text-slate-300">{player.tag}</td>
-                        <td className="px-4 py-3 text-slate-300">{formatNumber(player.expLevel)}</td>
-                        <td className="px-4 py-3 capitalize text-slate-200">{player.role || "member"}</td>
-                        <td className="px-4 py-3 text-slate-300">{formatNumber(player.trophies)}</td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {player.tag}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {formatNumber(player.expLevel)}
+                        </td>
+                        <td className="px-4 py-3 capitalize text-slate-200">
+                          {player.role || "member"}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {formatNumber(player.trophies)}
+                        </td>
                         <td className="px-4 py-3 text-slate-300">
                           {formatNumber(donationsGiven)}
                         </td>
@@ -1239,7 +2117,10 @@ const quickStats = useMemo(
                   })
                 ) : (
                   <tr>
-                    <td className="px-4 py-6 text-center text-slate-400" colSpan={11}>
+                    <td
+                      className="px-4 py-6 text-center text-slate-400"
+                      colSpan={11}
+                    >
                       No members to display.
                     </td>
                   </tr>
@@ -1254,6 +2135,3 @@ const quickStats = useMemo(
 };
 
 export default ClanDetails;
-
-
-

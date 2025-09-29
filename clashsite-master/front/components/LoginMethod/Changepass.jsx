@@ -15,11 +15,14 @@ const Changepass = ({ email }) => {
     }
 
     try {
-      const res = await axios.post("http://localhost:8081/updatePassword", {
-        email,
-        currentPassword,
-        newPassword,
-      });
+      const res = await axios.post(
+         `${import.meta.env.VITE_API_URL}/updatePassword`,
+        {
+          email,
+          currentPassword,
+          newPassword,
+        }
+      );
       setMessage(res.data.message);
       setTimeout(() => {
         setMessage("");

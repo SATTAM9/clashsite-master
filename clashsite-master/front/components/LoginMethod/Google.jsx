@@ -1,6 +1,7 @@
 import { useGoogleLogin } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import Cookies from "js-cookie";
 
 const Google = () => {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ const Google = () => {
   const login = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       const accessToken = tokenResponse.access_token;
+      console.log("Access Token:", accessToken);
       if (!accessToken) {
         setError("No access token returned.");
         return;
@@ -21,39 +23,36 @@ const Google = () => {
             headers: { Authorization: `Bearer ${accessToken}` },
           }
         );
-
         const profile = await res.json();
-
-        localStorage.setItem("user", JSON.stringify(profile));
         console.log(profile);
+        console.log(profile.email);
 
-        fetch("http://localhost:8081/signup", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: profile.name,
-            email: profile.email,
-          }),
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            console.log("Response from server:", data);
-          })
-          .catch((err) => console.error(err));
+        // ابعته للسيرفر
+        const signupRes = await fetch(
+          `${import.meta.env.VITE_API_URL}/signup`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            // credentials: "include", // لو عايز الكوكي
+            body: JSON.stringify({ email: profile.email, provider: "google" }),
+          }
+        );
 
-        setError("");
+        const data = await signupRes.json();
 
-        navigate("/profile");
-        window.location.reload();
+        if (signupRes.ok && data.accessToken) {
+          Cookies.set("accessToken", data.accessToken);
+          navigate("/profile", { replace: true });
+        } else {
+          setError(data.message || "Signup failed");
+          console.error("Signup error:", data);
+        }
       } catch (err) {
-        console.error("Fetch error:", err);
-        setError("Failed to fetch user profile.");
+        console.error(err);
+        setError("Error connecting to server");
       }
     },
     onError: () => {
-      console.log("Login failed");
       setError("Google Login Failed. Try again.");
     },
   });
@@ -73,18 +72,9 @@ const Google = () => {
         <span>Continue with Google</span>
       </button>
 
-      {error && (
-        <p className="text-xs font-medium text-red-300">{error}</p>
-      )}
+      {error && <p className="text-xs font-medium text-red-300">{error}</p>}
     </div>
   );
 };
 
 export default Google;
-
-// https://console.cloud.google.com/auth/clients?project=jovial-atlas-472114-p8&supportedpurview=project
-
-// eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkaml2ZGdkbmhiaWFnYnZodGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5MjcwODUsImV4cCI6MjA3MzUwMzA4NX0.6z7PGJlrf2CbEjy3SOF2IkPxe6fTQA0ONQ_AvDt7BOA
-
-// wdjivdgdnhbiagbvhtjb
-// sb_secret_-zGhja6EmlcPmZrDWPwAXQ_Ewh7He9e

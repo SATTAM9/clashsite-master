@@ -5,21 +5,60 @@ dotenv.config();
 const cors = require("cors");
 const PORT = process.env.PORT || 8081;
 const mongoose = require("mongoose");
-app.use(cors());
-app.use(express.json());
+const cookieParser = require("cookie-parser");
+const asyncHandler = require("express-async-handler");
+const User = require("./models/User");
 
-const userRoutes = require("./routes/authRoutes");
+// CORS configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (!origin || allowedOrigins.includes(origin)) {
+    if (origin) res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    );
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(204);
+    }
+  }
+  next();
+});
+
+app.use(cookieParser());
+
+
+app.use(express.json());
+const { ApiError, HandleError } = require("./middleware/errorHandler");
+
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/user");
 
 
 const fs = require("fs");
 const cheerio = require("cheerio");
-const { calculateRaidsCompleted, calculateOffensiveRaidMedals } = require("clashofclans.js");
+const {
+  calculateRaidsCompleted,
+  calculateOffensiveRaidMedals,
+} = require("clashofclans.js");
 const { Client } = require("clashofclans.js");
 const client = new Client();
 connect();
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+
+//--------------------------------
+//-----------------------------
 const getCurrentSeasonDayCount = () => {
   const now = new Date();
   const seasonStart = new Date(
@@ -66,16 +105,15 @@ if (corsOrigins && corsOrigins.length > 0) {
 process.env.PWD = process.cwd();
 app.use(express.static(process.env.PWD + "/public"));
 
-app.use(userRoutes);
 
 
 const sanitizeTag = (value) => {
   if (value === undefined || value === null) {
-    return '';
+    return "";
   }
 
   let raw = value;
-  if (typeof raw !== 'string') {
+  if (typeof raw !== "string") {
     raw = String(raw);
   }
 
@@ -87,18 +125,36 @@ const sanitizeTag = (value) => {
 
   const trimmed = raw.trim().toUpperCase();
   if (!trimmed) {
-    return '';
+    return "";
   }
 
-  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
 };
 
+
+
+//----------------------------------
+//-------------------------------
 const DONATION_CLANS_FILE = path.join(
   process.env.PWD || __dirname,
   "public",
   "files",
   "DonationClans.json"
 );
+
+//--------------------------
+const getVerifiedTagsFromDB = async () => {
+  const users = await User.find(
+    { "linkedClans.verify": true },
+    { linkedClans: 1, email: 1 }
+  );
+
+  console.log("users with verified clans:", users.length);
+
+  return users.flatMap((u) =>
+    u.linkedClans.filter((c) => c.verify).map((c) => c.tag)
+  );
+};
 
 const CLAN_TAG_REGEX = /^#[A-Z0-9]{3,}$/;
 
@@ -109,7 +165,7 @@ const normalizeDonationTag = (value) => {
   }
 
   const cleaned = sanitized.replace(/[^#A-Z0-9]/g, "");
-  const tag = cleaned.startsWith('#') ? cleaned : `#${cleaned}`;
+  const tag = cleaned.startsWith("#") ? cleaned : `#${cleaned}`;
   return CLAN_TAG_REGEX.test(tag) ? tag : "";
 };
 
@@ -124,6 +180,9 @@ const dedupeTags = (tags) => {
   });
 };
 
+
+//----------------------------------
+//-------------------------------
 const readDonationClanTags = () => {
   try {
     if (!fs.existsSync(DONATION_CLANS_FILE)) {
@@ -221,130 +280,154 @@ const parsePlayerHistoryHtml = (html) => {
     : $("table").first();
 
   if (historyTable && historyTable.length) {
-    historyTable.find("tr").slice(1).each((_, row) => {
-      const cells = $(row).find("td");
-      if (!cells || cells.length < 2) {
-        return;
-      }
-      const timestamp = $(cells[0]).text().replace(/\s+/g, " ").trim();
-      const actionCell = $(cells[1]);
-      const rawAction = actionCell.text().replace(/\s+/g, " ").trim();
-      const action = rawAction
-        .replace(LOGIN_NOTICE_REGEX, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      const clanCell = cells.length > 2 ? $(cells[2]) : null;
-      const rawClanText = clanCell ? clanCell.text() : "";
-      const clanText = rawClanText
-        .replace(LOGIN_NOTICE_REGEX, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      let clanName = clanText;
-      let clanTag = "";
-      let affiliation = "";
-
-      if (clanCell && clanCell.length) {
-        const firstLink = clanCell.find("a").first();
-        if (firstLink.length) {
-          clanName = firstLink.text().replace(/\s+/g, " ").trim() || clanName;
-          const href = firstLink.attr("href") || "";
-          const tagMatch = href.match(/tag=([^&]+)/i);
-          if (tagMatch) {
-            clanTag = decodeURIComponent(tagMatch[1])
-              .replace(/^#/, "")
-              .replace(/^%23/, "")
-              .toUpperCase();
-          }
+    historyTable
+      .find("tr")
+      .slice(1)
+      .each((_, row) => {
+        const cells = $(row).find("td");
+        if (!cells || cells.length < 2) {
+          return;
         }
-        const spanText = clanCell
-          .find("span")
-          .last()
-          .text()
+        const timestamp = $(cells[0]).text().replace(/\s+/g, " ").trim();
+        const actionCell = $(cells[1]);
+        const rawAction = actionCell.text().replace(/\s+/g, " ").trim();
+        const action = rawAction
           .replace(LOGIN_NOTICE_REGEX, " ")
           .replace(/\s+/g, " ")
           .trim();
-        if (spanText) {
-          affiliation = spanText.replace(/^\(|\)$/g, "");
+        const clanCell = cells.length > 2 ? $(cells[2]) : null;
+        const rawClanText = clanCell ? clanCell.text() : "";
+        const clanText = rawClanText
+          .replace(LOGIN_NOTICE_REGEX, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        let clanName = clanText;
+        let clanTag = "";
+        let affiliation = "";
+
+        if (clanCell && clanCell.length) {
+          const firstLink = clanCell.find("a").first();
+          if (firstLink.length) {
+            clanName = firstLink.text().replace(/\s+/g, " ").trim() || clanName;
+            const href = firstLink.attr("href") || "";
+            const tagMatch = href.match(/tag=([^&]+)/i);
+            if (tagMatch) {
+              clanTag = decodeURIComponent(tagMatch[1])
+                .replace(/^#/, "")
+                .replace(/^%23/, "")
+                .toUpperCase();
+            }
+          }
+          const spanText = clanCell
+            .find("span")
+            .last()
+            .text()
+            .replace(LOGIN_NOTICE_REGEX, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+          if (spanText) {
+            affiliation = spanText.replace(/^\(|\)$/g, "");
+          }
         }
-      }
 
-      if (timestamp || action || clanName) {
-        const clanInfo = {
-          name: clanName,
-          tag: clanTag,
-          affiliation,
-          raw: clanText,
-        };
-        const entry = {
-          timestamp,
-          action,
-          clan: clanInfo,
-        };
-        trackedActions.push(entry);
-
-        const lowerAction = action.toLowerCase();
-        if (lowerAction.includes("changed name")) {
-          let fromName = '';
-          let toName = '';
-
-          if (actionCell && actionCell.length) {
-            const spanTexts = actionCell
-              .find('span')
-              .map((_, span) => $(span).text().replace(/\s+/g, ' ').trim())
-              .get()
-              .filter(Boolean);
-            if (spanTexts.length >= 2) {
-              [fromName, toName] = spanTexts;
-            }
-          }
-
-          if (!fromName || !toName) {
-            const patterns = [
-              { pattern: /changed(?: their)? name from\s+"?([^"']+?)"?\s+to\s+"?([^"']+?)"?/i, fromIndex: 1, toIndex: 2 },
-              { pattern: /changed(?: their)? name to\s+"?([^"']+?)"?\s+from\s+"?([^"']+?)"?/i, fromIndex: 2, toIndex: 1 },
-              { pattern: /changed(?: their)? name to\s+"?([^"']+?)"?/i, fromIndex: null, toIndex: 1 },
-              { pattern: /changed(?: their)? name from\s+"?([^"']+?)"?/i, fromIndex: 1, toIndex: null },
-            ];
-
-            for (const { pattern, fromIndex, toIndex } of patterns) {
-              const match = action.match(pattern);
-              if (!match) {
-                continue;
-              }
-
-              if (!fromName && fromIndex !== null && match[fromIndex]) {
-                fromName = match[fromIndex];
-              }
-              if (!toName && toIndex !== null && match[toIndex]) {
-                toName = match[toIndex];
-              }
-
-              if (fromName && toName) {
-                break;
-              }
-            }
-          }
-
-          const clean = (value) => {
-            if (!value) {
-              return '';
-            }
-            return String(value).replace(/\s+/g, ' ').trim().replace(/^"|"$/g, '');
+        if (timestamp || action || clanName) {
+          const clanInfo = {
+            name: clanName,
+            tag: clanTag,
+            affiliation,
+            raw: clanText,
           };
+          const entry = {
+            timestamp,
+            action,
+            clan: clanInfo,
+          };
+          trackedActions.push(entry);
 
-          fromName = clean(fromName);
-          toName = clean(toName);
+          const lowerAction = action.toLowerCase();
+          if (lowerAction.includes("changed name")) {
+            let fromName = "";
+            let toName = "";
 
-          if (timestamp || fromName || toName) {
-            nameChanges.push({
-              timestamp,
-              from: fromName || null,
-              to: toName || null,
-            });
+            if (actionCell && actionCell.length) {
+              const spanTexts = actionCell
+                .find("span")
+                .map((_, span) => $(span).text().replace(/\s+/g, " ").trim())
+                .get()
+                .filter(Boolean);
+              if (spanTexts.length >= 2) {
+                [fromName, toName] = spanTexts;
+              }
+            }
+
+            if (!fromName || !toName) {
+              const patterns = [
+                {
+                  pattern:
+                    /changed(?: their)? name from\s+"?([^"']+?)"?\s+to\s+"?([^"']+?)"?/i,
+                  fromIndex: 1,
+                  toIndex: 2,
+                },
+                {
+                  pattern:
+                    /changed(?: their)? name to\s+"?([^"']+?)"?\s+from\s+"?([^"']+?)"?/i,
+                  fromIndex: 2,
+                  toIndex: 1,
+                },
+                {
+                  pattern: /changed(?: their)? name to\s+"?([^"']+?)"?/i,
+                  fromIndex: null,
+                  toIndex: 1,
+                },
+                {
+                  pattern: /changed(?: their)? name from\s+"?([^"']+?)"?/i,
+                  fromIndex: 1,
+                  toIndex: null,
+                },
+              ];
+
+              for (const { pattern, fromIndex, toIndex } of patterns) {
+                const match = action.match(pattern);
+                if (!match) {
+                  continue;
+                }
+
+                if (!fromName && fromIndex !== null && match[fromIndex]) {
+                  fromName = match[fromIndex];
+                }
+                if (!toName && toIndex !== null && match[toIndex]) {
+                  toName = match[toIndex];
+                }
+
+                if (fromName && toName) {
+                  break;
+                }
+              }
+            }
+
+            const clean = (value) => {
+              if (!value) {
+                return "";
+              }
+              return String(value)
+                .replace(/\s+/g, " ")
+                .trim()
+                .replace(/^"|"$/g, "");
+            };
+
+            fromName = clean(fromName);
+            toName = clean(toName);
+
+            if (timestamp || fromName || toName) {
+              nameChanges.push({
+                timestamp,
+                from: fromName || null,
+                to: toName || null,
+              });
+            }
           }
         }
-      }
-    });
+      });
   }
 
   const topSpan = $("#top");
@@ -439,42 +522,47 @@ const parseClanHistoryHtml = (html) => {
           .replace(/\s+/g, " ")
           .trim()
           .toLowerCase();
-        return headerText.includes("timestamp") && headerText.includes("action");
+        return (
+          headerText.includes("timestamp") && headerText.includes("action")
+        );
       })
       .first();
   }
 
   if (historyTable && historyTable.length) {
-    historyTable.find("tr").slice(1).each((_, row) => {
-      const cells = $(row).find("td");
-      if (!cells || cells.length < 2) {
-        return;
-      }
-      const timestamp = $(cells[0]).text().replace(/\s+/g, " ").trim();
-      const actionCell = $(cells[1]);
-      const rawAction = actionCell.text().replace(/\s+/g, " ").trim();
-      const action = rawAction
-        .replace(LOGIN_NOTICE_REGEX, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (!timestamp || !action) {
-        return;
-      }
+    historyTable
+      .find("tr")
+      .slice(1)
+      .each((_, row) => {
+        const cells = $(row).find("td");
+        if (!cells || cells.length < 2) {
+          return;
+        }
+        const timestamp = $(cells[0]).text().replace(/\s+/g, " ").trim();
+        const actionCell = $(cells[1]);
+        const rawAction = actionCell.text().replace(/\s+/g, " ").trim();
+        const action = rawAction
+          .replace(LOGIN_NOTICE_REGEX, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!timestamp || !action) {
+          return;
+        }
 
-      if (!action.toLowerCase().includes("changed clan name")) {
-        return;
-      }
+        if (!action.toLowerCase().includes("changed clan name")) {
+          return;
+        }
 
-      const spans = actionCell.find("span");
-      const fromName = spans.eq(0).text().replace(/\s+/g, " ").trim();
-      const toName = spans.eq(1).text().replace(/\s+/g, " ").trim();
+        const spans = actionCell.find("span");
+        const fromName = spans.eq(0).text().replace(/\s+/g, " ").trim();
+        const toName = spans.eq(1).text().replace(/\s+/g, " ").trim();
 
-      nameChanges.push({
-        timestamp,
-        from: fromName || null,
-        to: toName || null,
+        nameChanges.push({
+          timestamp,
+          from: fromName || null,
+          to: toName || null,
+        });
       });
-    });
   }
 
   return { nameChanges };
@@ -488,11 +576,14 @@ const fetchClanHistorySnapshot = async (tag, options = {}) => {
     throw error;
   }
 
-  const url = `${CLAN_HISTORY_SOURCE_URL}?tag=${encodeURIComponent(normalizedTag)}`;
+  const url = `${CLAN_HISTORY_SOURCE_URL}?tag=${encodeURIComponent(
+    normalizedTag
+  )}`;
   const response = await fetch(url, {
     signal: options.signal,
     headers: {
-      "User-Agent": "clashsite-clan-history-fetch/1.0 (+https://cc.fwafarm.com/)",
+      "User-Agent":
+        "clashsite-clan-history-fetch/1.0 (+https://cc.fwafarm.com/)",
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     },
   });
@@ -531,11 +622,7 @@ const fetchPlayerHistorySnapshot = async (tag, options = {}) => {
     Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   };
 
-  const attemptVariants = [
-    {},
-    { rlim: 120 },
-    { rlim: 200 },
-  ];
+  const attemptVariants = [{}, { rlim: 120 }, { rlim: 200 }];
 
   const aggregated = {
     trackedActions: [],
@@ -572,11 +659,9 @@ const fetchPlayerHistorySnapshot = async (tag, options = {}) => {
     if (!entry || typeof entry !== "object") {
       return;
     }
-    const key = [
-      entry.timestamp || "",
-      entry.from || "",
-      entry.to || "",
-    ].join("|");
+    const key = [entry.timestamp || "", entry.from || "", entry.to || ""].join(
+      "|"
+    );
     if (seenNameChanges.has(key)) {
       return;
     }
@@ -631,7 +716,11 @@ const fetchPlayerHistorySnapshot = async (tag, options = {}) => {
     const params = attemptVariants[index];
     const searchParams = new URLSearchParams({ tag: normalizedTag });
     Object.entries(params).forEach(([paramKey, paramValue]) => {
-      if (paramValue !== undefined && paramValue !== null && `${paramValue}` !== "") {
+      if (
+        paramValue !== undefined &&
+        paramValue !== null &&
+        `${paramValue}` !== ""
+      ) {
         searchParams.set(paramKey, String(paramValue));
       }
     });
@@ -694,17 +783,17 @@ const fetchPlayerHistorySnapshot = async (tag, options = {}) => {
   }
 
   const sortByTimestampDesc = (list) =>
-    list
-      .slice()
-      .sort((a, b) => {
-        const diff = toSortableTimestamp(b && b.timestamp) - toSortableTimestamp(a && a.timestamp);
-        if (diff !== 0) {
-          return diff;
-        }
-        const aLabel = (a && a.timestamp) || "";
-        const bLabel = (b && b.timestamp) || "";
-        return bLabel.localeCompare(aLabel);
-      });
+    list.slice().sort((a, b) => {
+      const diff =
+        toSortableTimestamp(b && b.timestamp) -
+        toSortableTimestamp(a && a.timestamp);
+      if (diff !== 0) {
+        return diff;
+      }
+      const aLabel = (a && a.timestamp) || "";
+      const bLabel = (b && b.timestamp) || "";
+      return bLabel.localeCompare(aLabel);
+    });
 
   aggregated.trackedActions = sortByTimestampDesc(aggregated.trackedActions);
   aggregated.nameChanges = sortByTimestampDesc(aggregated.nameChanges);
@@ -714,7 +803,6 @@ const fetchPlayerHistorySnapshot = async (tag, options = {}) => {
     source: usedVariantIndex > 0 ? "expanded" : "ok",
   };
 };
-
 
 app.get("/players/:tag/history", async (req, res) => {
   const sanitizedTag = sanitizeTag(req.params.tag);
@@ -736,7 +824,12 @@ app.get("/players/:tag/history", async (req, res) => {
     if (error && error.name === "AbortError") {
       return;
     }
-    console.error("player history fetch error:", error && error.message ? error.message : error, "tag:", req.params.tag);
+    console.error(
+      "player history fetch error:",
+      error && error.message ? error.message : error,
+      "tag:",
+      req.params.tag
+    );
     return res.status(502).json({ success: 0, error: "history_unavailable" });
   }
 });
@@ -874,7 +967,6 @@ app.post("/playerbytag", async function (req, res) {
   }
 });
 
-
 app.get("/clans/:tag/capitalraid", async function (req, res) {
   const normalizedTag = sanitizeTag(req.params.tag);
 
@@ -883,16 +975,23 @@ app.get("/clans/:tag/capitalraid", async function (req, res) {
   }
 
   const limitParam = Number(req.query.limit);
-  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(Math.floor(limitParam), 10) : 3;
+  const limit =
+    Number.isFinite(limitParam) && limitParam > 0
+      ? Math.min(Math.floor(limitParam), 10)
+      : 3;
 
   try {
-    const seasons = await client.getCapitalRaidSeasons(normalizedTag, { limit });
+    const seasons = await client.getCapitalRaidSeasons(normalizedTag, {
+      limit,
+    });
 
     const normalized = (Array.isArray(seasons) ? seasons : []).map((season) => {
       const attackLog = Array.isArray(season.attackLog) ? season.attackLog : [];
-      const defenseLog = Array.isArray(season.defenseLog) ? season.defenseLog : [];
+      const defenseLog = Array.isArray(season.defenseLog)
+        ? season.defenseLog
+        : [];
       const raidsCompleted =
-        typeof season.raidsCompleted === 'number'
+        typeof season.raidsCompleted === "number"
           ? season.raidsCompleted
           : calculateRaidsCompleted(attackLog);
       const calculatedMedals = calculateOffensiveRaidMedals(attackLog);
@@ -907,7 +1006,11 @@ app.get("/clans/:tag/capitalraid", async function (req, res) {
               bonusAttackLimit: member.bonusAttackLimit,
               capitalResourcesLooted: member.capitalResourcesLooted,
             }))
-            .sort((a, b) => (b.capitalResourcesLooted || 0) - (a.capitalResourcesLooted || 0))
+            .sort(
+              (a, b) =>
+                (b.capitalResourcesLooted || 0) -
+                (a.capitalResourcesLooted || 0)
+            )
         : [];
 
       const attackLogSummary = attackLog.map((entry) => ({
@@ -1028,8 +1131,8 @@ app.put("/admin/donation-clans", (req, res) => {
       if (normalizedTag) {
         normalized.push(normalizedTag);
       } else {
-        const rawValue = tag === undefined || tag === null ? '' : String(tag);
-        if (rawValue.trim() !== '') {
+        const rawValue = tag === undefined || tag === null ? "" : String(tag);
+        if (rawValue.trim() !== "") {
           invalid.push(rawValue);
         }
       }
@@ -1046,56 +1149,103 @@ app.put("/admin/donation-clans", (req, res) => {
     return res.json({ clans: saved });
   } catch (error) {
     console.error("[donations] Failed to save donation clans:", error);
-    return res
-      .status(500)
-      .json({ message: "Unable to save donation clans." });
+    return res.status(500).json({ message: "Unable to save donation clans." });
   }
 });
 
-app.get("/donationsclans", async function (req, res) {
-  const clans = readDonationClanTags();
-  var clansranking = [];
-  const seasonDayCount = getCurrentSeasonDayCount();
-  for (let j = 0; j < clans.length; j++) {
-    const clanTag = clans[j];
-    const clanInfo = await client.getClan(clanTag);
-    const members = Array.isArray(clanInfo.members) ? clanInfo.members : [];
-    let totalDonations = 0;
-    let totalDonationsReceived = 0;
-    for (let i = 0; i < members.length; i++) {
-      const member = members[i] || {};
-      totalDonations += member.donations || 0;
-      totalDonationsReceived += member.received || 0;
+
+app.get("/clanwar/:tag", async function (req, res) {
+  try {
+    let tag = req.params.tag || "";
+    try {
+      tag = decodeURIComponent(tag);
+    } catch {}
+    tag = tag.trim();
+
+    if (!tag || tag.length < 3) {
+      return res.json({ success: 0, error: "invalid_tag" });
     }
-    const totalSeasonDonations = totalDonations + totalDonationsReceived;
-    const averageDailyDonations = Math.round(
-      totalSeasonDonations / seasonDayCount
-    );
-    const badgeUrl =
-      (clanInfo.badge && clanInfo.badge.url) ||
-      (clanInfo.badgeUrls &&
-        (clanInfo.badgeUrls.large ||
-          clanInfo.badgeUrls.medium ||
-          clanInfo.badgeUrls.small)) ||
-      '';
-    const nameAndTag = clanInfo.name + "<br>" + clanTag;
 
-    clansranking.push([
-      badgeUrl ? '<img src="' + badgeUrl + '" alt="logo"></img>' : '',
-      nameAndTag,
-      totalDonations,
-      totalDonationsReceived,
-      totalSeasonDonations,
-      averageDailyDonations,
-      clanTag,
-      badgeUrl,
-      clanInfo.name || '',
-    ]);
+    const currentWar = await client.getClanWar(tag);
+    return res.json({ success: 1, currentWar });
+  } catch (error) {
+    console.error("clanwar error:", error.message, "req.params:", req.params);
+    return res.json({
+      success: 0,
+      error: error.reason || error.message || "unknown_error",
+    });
   }
-  res.json({ success: 1, clansranking: clansranking });
 });
 
-  
+
+//---------------------------------------------------------------
+//------------------------------------------
+
+app.get(
+  "/donationsclans",
+  asyncHandler(async (req, res) => {
+    // 1. هات كل tags من DonationClans.json
+    const donationClans = readDonationClanTags();
+
+    // 2. هات كل tags المؤكدة من الـ DB
+    const verifiedTags = await getVerifiedTagsFromDB();
+
+    // 3. دمج الاتنين مع بعض (وإزالة التكرار)
+    const allTags = Array.from(new Set([...donationClans, ...verifiedTags]));
+
+    // 4. نفس منطق الترتيب اللي عندك
+    const seasonDayCount = getCurrentSeasonDayCount();
+    const clansranking = [];
+
+    for (const clanTag of allTags) {
+      const clanInfo = await client.getClan(clanTag);
+      const members = Array.isArray(clanInfo.members) ? clanInfo.members : [];
+      let totalDonations = 0;
+      let totalDonationsReceived = 0;
+
+      for (const member of members) {
+        totalDonations += member?.donations || 0;
+        totalDonationsReceived += member?.received || 0;
+      }
+
+      const totalSeasonDonations = totalDonations + totalDonationsReceived;
+      const averageDailyDonations = Math.round(
+        totalSeasonDonations / seasonDayCount
+      );
+
+      const badgeUrl =
+        (clanInfo.badge && clanInfo.badge.url) ||
+        (clanInfo.badgeUrls &&
+          (clanInfo.badgeUrls.large ||
+            clanInfo.badgeUrls.medium ||
+            clanInfo.badgeUrls.small)) ||
+        "";
+
+      const nameAndTag = `${clanInfo.name}<br>${clanTag}`;
+
+      clansranking.push([
+        badgeUrl ? `<img src="${badgeUrl}" alt="logo"></img>` : "",
+        nameAndTag,
+        totalDonations,
+        totalDonationsReceived,
+        totalSeasonDonations,
+        averageDailyDonations,
+        clanTag,
+        badgeUrl,
+        clanInfo.name || "",
+      ]);
+    }
+
+    // ممكن هنا تعمل sort/clansranking حسب اللي تحبه مثلاً بالـ totalSeasonDonations
+    clansranking.sort((a, b) => b[4] - a[4]); // sort by totalSeasonDonations descending
+
+    res.json({
+      success: 1,
+      verifiedTags, // عشان تعرفهم لوحدهم
+      clansranking,
+    });
+  })
+);
 
 
 app.post("/players/:playerTag/verifytoken", async (req, res) => {
@@ -1106,20 +1256,18 @@ app.post("/players/:playerTag/verifytoken", async (req, res) => {
   if (!token) {
     return res.status(400).json({ message: "Token is required" });
   }
-
-  console.log(token)
-
+ 
   try {
     // const tag = playerTag.replace(/#/g, "%23");
-    const tag = "%23"+playerTag
-    console.log(tag)
-
+    const tag = "%23" + playerTag;
+  
+ 
     const response = await fetch(
       `https://api.clashofclans.com/v1/players/${tag}/verifytoken`,
       {
         method: "POST",
         headers: {
-          Authorization: `${process.env.CLAH}`,
+          Authorization: `Bearer ${process.env.CLASH}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ token }),
@@ -1135,66 +1283,25 @@ app.post("/players/:playerTag/verifytoken", async (req, res) => {
   }
 });
 
+app.use(userRoutes);
+app.use(authRoutes);
 
-// app.post("/players/:playerTag/verifytoken", async (req, res) => {
-//   const { playerTag } = req.params; // ????? "#GUJ82JL0Q" ???????? ?? ???? encode ??
-//   const { token } = req.body;
-
-//   if (!token) {
-//     return res.status(400).json({ message: "Token is required" });
-//   }
-
-//   try {
-//     // ???? # ?? %23 ??? ???? ??? API
-//     const tag = playerTag.replace(/#/g, "%23");
-
-//     const response = await fetch(
-//       `https://api.clashofclans.com/v1/players/${tag}/verifytoken`,
-//       {
-//         method: "POST",
-//         headers: {
-//           Authorization: `Bearer ${process.env.CLAH}`, // ???? Bearer
-//           "Content-Type": "application/json",
-//         },
-//         body: JSON.stringify({ token }),
-//       }
-//     );
-
-//     const data = await response.json();
-//     res.json(data);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// });
-
-
-
-
-
-// Connect to MongoDB
-mongoose.set("strictQuery", false);
-
-const mongoUri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/reqclans";
-const mongoOptions = {
-  serverSelectionTimeoutMS: Number(process.env.MONGO_TIMEOUT_MS || 10000),
-};
+app.use(HandleError);
+  
+// any error not  from express
+process.on("unhandledRejection", (err) => {
+  console.log("unhandledRehection", err.message);
+  process.exit(1);
+});
 
 mongoose
-  .connect(mongoUri, mongoOptions)
-  .then(() => console.log("? Connected to MongoDB"))
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("ok Connected to MongoDB "))
   .catch((err) => {
     console.error("? MongoDB connection error:", err.message);
   });
 
-app.get("/", (req, res) => {
-  res.send("Server is running 🚀");
-});
-
+  // const host = '0.0.0.0';
 app.listen(PORT, () => {
-  console.log(`Node app is running on http://localhost:${PORT}`);
+  console.log(`Node app is running on port ${PORT}`);
 });
-
-
-
-
