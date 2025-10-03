@@ -10,39 +10,30 @@ const asyncHandler = require("express-async-handler");
 const User = require("./models/User");
 
 // CORS configuration
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-];
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-
-  if (!origin || allowedOrigins.includes(origin)) {
-    if (origin) res.header("Access-Control-Allow-Origin", origin);
-    res.header("Vary", "Origin");
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.header(
-      "Access-Control-Allow-Methods",
-      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    );
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(204);
-    }
-  }
-  next();
-});
+const allowedOrigin = process.env.FRONTEND_URL;
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || origin === allowedOrigin) {
+        callback(null, true); 
+      } else {
+        callback(new Error("Not allowed by CORS")); 
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+  })
+);
 
 app.use(cookieParser());
-
 
 app.use(express.json());
 const { ApiError, HandleError } = require("./middleware/errorHandler");
 
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/user");
-
 
 const fs = require("fs");
 const cheerio = require("cheerio");
@@ -55,7 +46,6 @@ const client = new Client();
 connect();
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
 
 //--------------------------------
 //-----------------------------
@@ -91,21 +81,8 @@ app.use(
   })
 );
 
-const corsOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(",")
-      .map((o) => o.trim())
-      .filter(Boolean)
-  : null;
-if (corsOrigins && corsOrigins.length > 0) {
-  app.use(cors({ origin: corsOrigins }));
-} else {
-  app.use(cors());
-}
-
 process.env.PWD = process.cwd();
 app.use(express.static(process.env.PWD + "/public"));
-
-
 
 const sanitizeTag = (value) => {
   if (value === undefined || value === null) {
@@ -130,8 +107,6 @@ const sanitizeTag = (value) => {
 
   return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
 };
-
-
 
 //----------------------------------
 //-------------------------------
@@ -179,7 +154,6 @@ const dedupeTags = (tags) => {
     return true;
   });
 };
-
 
 //----------------------------------
 //-------------------------------
@@ -1153,7 +1127,6 @@ app.put("/admin/donation-clans", (req, res) => {
   }
 });
 
-
 app.get("/clanwar/:tag", async function (req, res) {
   try {
     let tag = req.params.tag || "";
@@ -1176,7 +1149,6 @@ app.get("/clanwar/:tag", async function (req, res) {
     });
   }
 });
-
 
 //---------------------------------------------------------------
 //------------------------------------------
@@ -1247,7 +1219,6 @@ app.get(
   })
 );
 
-
 app.post("/players/:playerTag/verifytoken", async (req, res) => {
   const { playerTag } = req.params;
 
@@ -1256,12 +1227,11 @@ app.post("/players/:playerTag/verifytoken", async (req, res) => {
   if (!token) {
     return res.status(400).json({ message: "Token is required" });
   }
- 
+
   try {
     // const tag = playerTag.replace(/#/g, "%23");
     const tag = "%23" + playerTag;
-  
- 
+
     const response = await fetch(
       `https://api.clashofclans.com/v1/players/${tag}/verifytoken`,
       {
@@ -1282,12 +1252,12 @@ app.post("/players/:playerTag/verifytoken", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
+ 
 app.use(userRoutes);
 app.use(authRoutes);
 
 app.use(HandleError);
-  
+
 // any error not  from express
 process.on("unhandledRejection", (err) => {
   console.log("unhandledRehection", err.message);
@@ -1301,7 +1271,7 @@ mongoose
     console.error("? MongoDB connection error:", err.message);
   });
 
-  // const host = '0.0.0.0';
+// const host = '0.0.0.0';
 app.listen(PORT, () => {
   console.log(`Node app is running on port ${PORT}`);
 });

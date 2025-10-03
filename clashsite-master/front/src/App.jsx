@@ -29,6 +29,7 @@ import XpCalculator from "../components/XpCalculator.jsx";
 import Clansdonatin from "../components/clansdonatin/Clansdonatin.jsx";
 import Aboute from "../components/Aboute.jsx";
 import RSSFeed from "./Rss.jsx";
+import LegalPolicies from "../components/Privacy.jsx";
 
 const GOOGLE_CLIENT_ID =
   "171615105804-bbjsnv1sqh0i0q30jprdndjgi6c5oiu5.apps.googleusercontent.com";
@@ -81,11 +82,21 @@ function App() {
             }
           />
           <Route
-            path="/aboute"
+            path="/about"
             element={
               <>
                 <Header />
                 <Aboute />
+                <Footer />
+              </>
+            }
+          />
+          <Route
+            path="/privacy"
+            element={
+              <>
+                <Header />
+                 <LegalPolicies />
                 <Footer />
               </>
             }

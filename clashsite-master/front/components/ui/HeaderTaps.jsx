@@ -56,14 +56,7 @@ const HoverTapSections = () => {
       </li> */}
 
       {/* Home link */}
-      <li>
-        <Link
-          to="/"
-          className="hover:text-yellow-400 transition-colors duration-200"
-        >
-          Home
-        </Link>
-      </li>
+   
       <li>
         <Link
           to="/xp-calculator"
@@ -90,10 +83,10 @@ const HoverTapSections = () => {
       </li>
       <li>
         <Link
-          to="/aboute"
+          to="/about"
           className="hover:text-yellow-400 transition-colors duration-200"
         >
-          Aboute
+          About
         </Link>
       </li>
     </ul>

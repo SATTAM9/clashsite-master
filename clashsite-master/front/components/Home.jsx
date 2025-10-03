@@ -183,10 +183,10 @@ const Home = () => {
 
   const videoSrc =
     device === "mobile"
-      ? "/Mobile.mp4"
+      ? "/Mobile1.mp4"
       : device === "tablet"
-      ? "/Tablet.mp4"
-      : "/Desktop.mp4";
+      ? "/Tablet1.mp4"
+      : "/Desktop1.mp4";
 
   return (
     <PageShell className="w-full" padded={false} fullWidth variant="plain">
