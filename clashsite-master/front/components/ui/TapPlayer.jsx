@@ -399,6 +399,53 @@ const buildIconCandidates = (category, item) => {
     remoteFileName.replace(/\.[^.]+$/, ""),
   ]);
 
+  // PRIORITY 1: Add specific, known-good paths FIRST (for fast loading)
+  const slug = sanitized;
+  const slugNoDots = slug.replace(/\./g, "");
+  
+  if (category === "troops") {
+    if (villageKey === "home") {
+      pushLocal(`troops/Icon_HV_${slug}.png`);
+      pushLocal(`troops/Icon_HV_${slugNoDots}.png`);
+      pushLocal(`super-troop-pics/Icon_HV_${slug}.png`);
+      pushLocal(`pets/Icon_HV_Hero_Pets_${slug}.png`);
+      pushLocal(`siege/Icon_HV_Siege_Machine_${slug}.png`);
+      pushLocal(`troops/Troop_HV_${slug}_grass.png`);
+    } else {
+      pushLocal(`bb-troops/Icon_BB_${slug}.png`);
+    }
+  }
+
+  if (category === "heroes") {
+    if (villageKey === "home") {
+      pushLocal(`heroes/Icon_HV_Hero_${slug}.png`);
+    } else {
+      pushLocal(`bb-heroes/Icon_BB_Hero_${slug}.png`);
+    }
+  }
+
+  if (category === "spells") {
+    const spellSlug = slug.replace(/^Healing$/i, "Heal");
+    pushLocal(`spells/Icon_HV_Spell_${spellSlug}.png`);
+    pushLocal(`spells/Icon_HV_Dark_Spell_${spellSlug}.png`);
+  }
+
+  if (category === "pets") {
+    pushLocal(`pets/Icon_HV_Hero_Pets_${slug}.png`);
+  }
+
+  if (category === "siege") {
+    pushLocal(`siege/Icon_HV_Siege_Machine_${slug}.png`);
+    pushLocal(`siege/${slug.toLowerCase()}.png`);
+  }
+
+  if (category === "equipment") {
+    const heroes = ["AQ", "BK", "GW", "RC", "MP"];
+    heroes.forEach((code) => pushLocal(`equipment/Hero_Equipment_${code}_${slug}.png`));
+    pushLocal(`equipment/${slug}.png`);
+  }
+
+  // PRIORITY 2: Generic fallbacks LAST (only if specific paths fail)
   const fileNames = distinct(
     nameVariants.flatMap((variant) => {
       if (!variant) return [];
@@ -411,53 +458,6 @@ const buildIconCandidates = (category, item) => {
     localDirs.forEach((dir) => pushLocal(`${dir}/${cleaned}`));
     pushLocal(cleaned);
   });
-
-  if (category === "troops") {
-    if (villageKey === "home") {
-      const slug = sanitized;
-      const slugNoDots = slug.replace(/\./g, "");
-      pushLocal(`troops/Icon_HV_${slug}.png`);
-      pushLocal(`troops/Icon_HV_${slugNoDots}.png`);
-      pushLocal(`troops/Troop_HV_${slug}_grass.png`);
-      pushLocal(`${slug}.png`);
-    } else {
-      const slug = sanitized;
-      pushLocal(`bb-troops/Icon_BB_${slug}.png`);
-    }
-  }
-
-  if (category === "heroes") {
-    const slug = sanitized;
-    if (villageKey === "home") {
-      pushLocal(`heroes/Icon_HV_Hero_${slug}.png`);
-    } else {
-      pushLocal(`bb-heroes/Icon_BB_Hero_${slug}.png`);
-    }
-  }
-
-  if (category === "spells") {
-    const slug = sanitized.replace(/^Healing$/i, "Heal");
-    pushLocal(`spells/Icon_HV_Spell_${slug}.png`);
-    pushLocal(`spells/Icon_HV_Dark_Spell_${slug}.png`);
-  }
-
-  if (category === "pets") {
-    const slug = sanitized;
-    pushLocal(`pets/Icon_HV_Hero_Pets_${slug}.png`);
-  }
-
-  if (category === "siege") {
-    const slug = sanitized;
-    pushLocal(`siege/Icon_HV_Siege_Machine_${slug}.png`);
-    pushLocal(`siege/${slug.toLowerCase()}.png`);
-  }
-
-  if (category === "equipment") {
-    const slug = sanitized;
-    const heroes = ["AQ", "BK", "GW", "RC", "MP"];
-    heroes.forEach((code) => pushLocal(`equipment/Hero_Equipment_${code}_${slug}.png`));
-    pushLocal(`equipment/${slug}.png`);
-  }
 
   if (remoteIcon) {
     candidates.push(remoteIcon);
@@ -479,27 +479,48 @@ const describeLevel = (item) => {
 const UnitCard = ({ item, category }) => {
   const candidates = useMemo(() => buildIconCandidates(category, item), [category, item]);
   const [index, setIndex] = useState(0);
+  const [loaded, setLoaded] = useState(false);
 
   const primaryCandidate = candidates[0] || "";
   const candidateCount = candidates.length;
 
   useEffect(() => {
     setIndex(0);
+    setLoaded(false);
   }, [candidateCount, primaryCandidate]);
 
   const src = candidates[index] || "";
 
+  const handleError = () => {
+    if (index + 1 < candidates.length) {
+      setIndex((prev) => prev + 1);
+      setLoaded(false);
+    }
+  };
+
+  const handleLoad = () => {
+    setLoaded(true);
+  };
+
   return (
     <div className="relative flex h-24 w-24 flex-col items-center justify-center rounded-2xl bg-slate-900/70 p-3 shadow-inner">
       {src ? (
-        <img
-          src={src}
-          alt={item.name}
-          className="h-16 w-16 rounded-xl object-contain"
-          onError={() => {
-            setIndex((prev) => (prev + 1 < candidates.length ? prev + 1 : prev));
-          }}
-        />
+        <>
+          <img
+            src={src}
+            alt={item.name}
+            className={`h-16 w-16 rounded-xl object-contain transition-opacity duration-200 ${
+              loaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            onError={handleError}
+            onLoad={handleLoad}
+          />
+          {!loaded && (
+            <div className="absolute flex h-16 w-16 items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-600 border-t-sky-400"></div>
+            </div>
+          )}
+        </>
       ) : (
         <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-800/70 text-xs text-slate-400">
           No art
